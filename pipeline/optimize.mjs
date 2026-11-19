@@ -32,7 +32,7 @@ for (const [name, p] of Object.entries(profiles)) {
   const doc = await io.read(`${BUILD}/apto.glb`);
   await doc.transform(
     dedup(),
-    prune(),
+    prune({ keepAttributes: true }), // preserva TEXCOORD_1 (UV dos lightmaps, usada só no tour)
     weld(),
     resample(),
     textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [p.tex, p.tex], quality: p.quality }),

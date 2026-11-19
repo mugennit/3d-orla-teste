@@ -55,7 +55,7 @@ export function TourScene({ layout, mode, active, isTouch, onLockChange, onEnter
       <Suspense fallback={null}>
         {photo ? (
           <>
-            <PhotoEnvironment config={photo} exposure={2.1} />
+            <PhotoEnvironment config={photo} exposure={2.35} />
             <PhotoApartment config={photo} tier={isTouch || degraded ? 'mobile' : 'desktop'} showCeiling={mode === 'walk'} />
           </>
         ) : (

@@ -27,6 +27,10 @@ interface Meta {
 const KEEP_IBL_SPECULAR = THREE.ShaderChunk.lights_fragment_maps.replace(
   'iblIrradiance += getIBLIrradiance( geometryNormal );',
   '/* irradiância difusa vem do lightmap */',
+).replace(
+  'lightMapTexel.rgb * lightMapIntensity',
+  // leve correção de balanço de branco (luz do dia de interior, mais quente)
+  'lightMapTexel.rgb * lightMapIntensity * vec3( 1.06, 1.0, 0.92 )',
 );
 
 function prepareLightmap(t: THREE.Texture) {
@@ -72,7 +76,11 @@ export function PhotoApartment({
       if (!mesh.isMesh) return;
       mesh.matrixAutoUpdate = false;
       mesh.updateMatrix();
-      const group = mesh.userData.lightmap as 'arch' | 'furn' | undefined;
+      // O GLTFLoader do three-stdlib nomeia TEXCOORD_1 como `uv2`; o Three r170 usa `uv1`.
+      const geo = mesh.geometry;
+      if (!geo.getAttribute('uv1') && geo.getAttribute('uv2')) geo.setAttribute('uv1', geo.getAttribute('uv2'));
+      // Malhas com vários materiais viram um grupo: os "extras" ficam no nó pai.
+      const group = (mesh.userData.lightmap || mesh.parent?.userData.lightmap || undefined) as 'arch' | 'furn' | undefined;
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       const next = mats.map((m) => {
         const std = m as THREE.MeshStandardMaterial;
@@ -99,6 +107,19 @@ export function PhotoApartment({
       mesh.material = Array.isArray(mesh.material) ? next : next[0]!;
     });
     ceilings.current = list;
+    (window as unknown as { __photo?: THREE.Object3D }).__photo = gltf.scene;
+    // Depuração: ?lm=1 mostra apenas o lightmap.
+    if (new URLSearchParams(window.location.search).get('lm') === '1') {
+      gltf.scene.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        const g = mesh.userData.lightmap || mesh.parent?.userData.lightmap;
+        if (mesh.isMesh && g) {
+          const t = g === 'arch' ? lmArch : lmFurn;
+          const mb = new THREE.MeshBasicMaterial({ map: t });
+          mesh.material = mb;
+        }
+      });
+    }
   }, [gltf, lmArch, lmFurn, meta.k_arch, meta.k_furn]);
 
   useEffect(() => {
@@ -113,8 +134,6 @@ export function PhotoEnvironment({ config, exposure }: { config: PhotoSceneConfi
   const sky = useTexture(`${config.baseUrl}/ceu.jpg`);
   const { gl, scene } = useThree();
   const captured = useRef(0);
-  const target = useMemo(() => new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType }), []);
-  const cubeCam = useMemo(() => new THREE.CubeCamera(0.05, 60, target), [target]);
 
   useLayoutEffect(() => {
     sky.mapping = THREE.EquirectangularReflectionMapping;
@@ -123,27 +142,36 @@ export function PhotoEnvironment({ config, exposure }: { config: PhotoSceneConfi
     scene.backgroundIntensity = 1.6;
     gl.toneMapping = THREE.AgXToneMapping;
     gl.toneMappingExposure = exposure;
-    return () => {
-      scene.background = null;
-      scene.environment = null;
-    };
   }, [sky, scene, gl, exposure]);
 
-  // Captura o ambiente depois que a cena está montada (2 quadros) e gera o PMREM.
+  // Limpeza apenas ao sair da cena fotorrealista.
+  useEffect(
+    () => () => {
+      scene.background = null;
+      scene.environment?.dispose();
+      scene.environment = null;
+    },
+    [scene],
+  );
+
+  // Captura o ambiente (com os lightmaps já aplicados) alguns quadros após montar e gera o PMREM.
   useFrame(() => {
-    if (captured.current > 2) return;
+    if (captured.current > 3) return;
     captured.current++;
-    if (captured.current !== 2) return;
+    if (captured.current !== 3) return;
     const [x, y, h] = config.probe;
-    cubeCam.position.set(x, h, y);
-    const prevEnv = scene.environment;
+    const prev = scene.environment;
     scene.environment = null;
-    cubeCam.update(gl, scene);
+    // fromScene captura a partir da origem: desloca a cena para que a origem caia no ponto de captura.
+    scene.position.set(-x, -h, -y);
+    scene.updateMatrixWorld(true);
     const pmrem = new THREE.PMREMGenerator(gl);
-    const env = pmrem.fromCubemap(target.texture).texture;
+    const rt = pmrem.fromScene(scene, 0.02, 0.05, 60);
     pmrem.dispose();
-    scene.environment = env;
-    prevEnv?.dispose?.();
+    scene.position.set(0, 0, 0);
+    scene.updateMatrixWorld(true);
+    scene.environment = rt.texture;
+    prev?.dispose?.();
   });
 
   return null;

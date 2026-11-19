@@ -18,6 +18,12 @@ const check = (cond, msg) => {
   console.log(`${cond ? '✔' : '✘'} ${msg}`);
   if (!cond) failures.push(msg);
 };
+/** Espera o download da cena fotorrealista (se houver) terminar. */
+const waitLoaded = async (page) => {
+  await page.waitForTimeout(1500);
+  await page.waitForFunction(() => !document.querySelector('.loading-overlay'), null, { timeout: 240000 });
+  await page.waitForTimeout(1500);
+};
 const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], yaw: window.__tour.yaw, pitch: window.__tour.pitch }));
 
 (async () => {
@@ -34,6 +40,7 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
   await page.screenshot({ path: `${out}/desktop-1-inicio.png` });
   await page.click('.btn-primary');
   await page.waitForTimeout(500);
+  await waitLoaded(page);
 
   const s0 = await state(page);
   await page.keyboard.down('KeyW');
@@ -91,6 +98,7 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
   await m.screenshot({ path: `${out}/mobile-1-inicio.png` });
   await m.tap('.btn-primary');
   await m.waitForTimeout(500);
+  await waitLoaded(m);
   check(await m.locator('.joystick-base').count() === 1, 'Celular: joystick virtual visível');
 
   const cdp = await ctx.newCDPSession(m);

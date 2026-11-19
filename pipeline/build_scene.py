@@ -935,9 +935,30 @@ def objects_for(group):
     return [o for o in bpy.data.objects if o.type == 'MESH' and o.get('lightmap') == group]
 
 
+def drop_hidden_faces(objs):
+    """Remove faces nunca visíveis (topo das paredes acima do forro, fundos apoiados no piso),
+    liberando área do lightmap para as superfícies que aparecem."""
+    for o in objs:
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        mw = o.matrix_world
+        dead = []
+        for f in bm.faces:
+            c = mw @ f.calc_center_median()
+            n = (mw.to_3x3() @ f.normal).normalized()
+            if (n.z > 0.95 and c.z >= H - 0.002 and not o.get('ceiling')) or (n.z < -0.95 and c.z <= 0.002) or (n.z < -0.95 and c.z < -0.008):
+                dead.append(f)
+        bmesh.ops.delete(bm, geom=dead, context='FACES')
+        bm.to_mesh(o.data)
+        bm.free()
+
+
 def lightmap_uvs(objs, margin=0.003):
+    drop_hidden_faces(objs)
     for o in objs:
         me = o.data
+        while 'lm' not in me.uv_layers and len(me.uv_layers) > 1:
+            me.uv_layers.remove(me.uv_layers[-1])  # garante lightmap em TEXCOORD_1
         if 'lm' not in me.uv_layers:
             me.uv_layers.new(name='lm')
         me.uv_layers.active = me.uv_layers['lm']
