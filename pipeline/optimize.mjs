@@ -14,7 +14,7 @@ import sharp from 'sharp';
 import { copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 
 const BUILD = '.cache/build';
-const OUT = 'public/cenas/orla-45m2';
+const OUT = process.env.OUT_DIR || 'public/cenas/orla-45m2';
 
 /**
  * Resolução por tipo de textura (sem perda visível):

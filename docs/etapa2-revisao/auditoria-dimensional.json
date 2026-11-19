@@ -1,0 +1,223 @@
+{
+ "pxPerMeter": 79.88137284468431,
+ "paredes": [
+  {
+   "parede": "ext-oeste",
+   "sistema": "concrete",
+   "amostras": 7,
+   "esp_modelo_cm": 10.0,
+   "esp_planta_cm": 11.6,
+   "desvio_eixo_cm": 0.0
+  },
+  {
+   "parede": "ext-sul",
+   "sistema": "concrete",
+   "amostras": 5,
+   "esp_modelo_cm": 8.8,
+   "esp_planta_cm": 10.0,
+   "desvio_eixo_cm": -2.3
+  },
+  {
+   "parede": "ext-leste",
+   "sistema": "concrete",
+   "amostras": 7,
+   "esp_modelo_cm": 11.3,
+   "esp_planta_cm": 12.5,
+   "desvio_eixo_cm": 0.2
+  },
+  {
+   "parede": "ext-norte-suite",
+   "sistema": "concrete",
+   "amostras": 13,
+   "esp_modelo_cm": 10.0,
+   "esp_planta_cm": 11.6,
+   "desvio_eixo_cm": 0.0
+  },
+  {
+   "parede": "ext-norte-q2",
+   "sistema": "concrete",
+   "amostras": 14,
+   "esp_modelo_cm": 10.0,
+   "esp_planta_cm": 11.6,
+   "desvio_eixo_cm": 0.0
+  },
+  {
+   "parede": "varanda-parapeito",
+   "medido": null
+  },
+  {
+   "parede": "varanda-porta-vidro",
+   "medido": null
+  },
+  {
+   "parede": "sala-q2",
+   "sistema": "concrete",
+   "amostras": 7,
+   "esp_modelo_cm": 10.0,
+   "esp_planta_cm": 11.6,
+   "desvio_eixo_cm": 0.0
+  },
+  {
+   "parede": "sala-q2-drywall",
+   "sistema": "drywall",
+   "amostras": 7,
+   "esp_modelo_cm": 8.0,
+   "esp_planta_cm": 5.9,
+   "desvio_eixo_cm": 1.3
+  },
+  {
+   "parede": "q2-suite",
+   "sistema": "concrete",
+   "amostras": 7,
+   "esp_modelo_cm": 10.0,
+   "esp_planta_cm": 11.6,
+   "desvio_eixo_cm": 0.0
+  },
+  {
+   "parede": "q2-suite-drywall",
+   "sistema": "drywall",
+   "amostras": 7,
+   "esp_modelo_cm": 8.0,
+   "esp_planta_cm": 6.6,
+   "desvio_eixo_cm": -1.9
+  },
+  {
+   "parede": "q2-sul-drywall",
+   "sistema": "drywall",
+   "amostras": 7,
+   "esp_modelo_cm": 8.0,
+   "esp_planta_cm": 7.5,
+   "desvio_eixo_cm": 0.2
+  },
+  {
+   "parede": "circulacao-suite",
+   "medido": null
+  },
+  {
+   "parede": "banhos-norte-drywall",
+   "sistema": "drywall",
+   "amostras": 14,
+   "esp_modelo_cm": 8.0,
+   "esp_planta_cm": 7.5,
+   "desvio_eixo_cm": 0.2
+  },
+  {
+   "parede": "banho-social-sala",
+   "sistema": "concrete",
+   "amostras": 7,
+   "esp_modelo_cm": 10.0,
+   "esp_planta_cm": 11.6,
+   "desvio_eixo_cm": 0.0
+  },
+  {
+   "parede": "banhos-divisa-drywall",
+   "sistema": "drywall",
+   "amostras": 7,
+   "esp_modelo_cm": 10.0,
+   "esp_planta_cm": 7.5,
+   "desvio_eixo_cm": 1.7
+  },
+  {
+   "parede": "servico-cozinha-drywall",
+   "sistema": "drywall",
+   "amostras": 7,
+   "esp_modelo_cm": 8.0,
+   "esp_planta_cm": 6.6,
+   "desvio_eixo_cm": 0.0
+  },
+  {
+   "parede": "servico-sala-drywall",
+   "sistema": "drywall",
+   "amostras": 7,
+   "esp_modelo_cm": 8.0,
+   "esp_planta_cm": 5.9,
+   "desvio_eixo_cm": 0.0
+  }
+ ],
+ "dimensoes": [
+  {
+   "medida": "Estar/Jantar — largura (oeste→banho social)",
+   "planta_m": 3.314,
+   "modelo_m": 3.33,
+   "dif_cm": 1.6
+  },
+  {
+   "medida": "Estar/Jantar — profundidade (porta varanda→parede sul)",
+   "erro": "parede sem medição: 'varanda-porta-vidro'"
+  },
+  {
+   "medida": "Estar — largura (drywall sofá→parede da TV)",
+   "planta_m": 1.853,
+   "modelo_m": 1.85,
+   "dif_cm": -0.2
+  },
+  {
+   "medida": "Cozinha — comprimento (drywall serviço→parede sul)",
+   "planta_m": 4.081,
+   "modelo_m": 4.104,
+   "dif_cm": 2.3
+  },
+  {
+   "medida": "Quarto 2 — largura",
+   "planta_m": 2.163,
+   "modelo_m": 2.178,
+   "dif_cm": 1.6
+  },
+  {
+   "medida": "Quarto 2 — profundidade",
+   "planta_m": 3.405,
+   "modelo_m": 3.409,
+   "dif_cm": 0.4
+  },
+  {
+   "medida": "Suíte — largura (drywall Q2→parede leste)",
+   "planta_m": 2.463,
+   "modelo_m": 2.482,
+   "dif_cm": 1.9
+  },
+  {
+   "medida": "Suíte — profundidade",
+   "planta_m": 2.954,
+   "modelo_m": 2.958,
+   "dif_cm": 0.4
+  },
+  {
+   "medida": "Circulação — largura",
+   "erro": "parede sem medição: 'circulacao-suite'"
+  },
+  {
+   "medida": "Circulação — profundidade",
+   "planta_m": 0.926,
+   "modelo_m": 0.921,
+   "dif_cm": -0.5
+  },
+  {
+   "medida": "Banho social — comprimento",
+   "planta_m": 2.328,
+   "modelo_m": 2.341,
+   "dif_cm": 1.3
+  },
+  {
+   "medida": "Banho social — largura",
+   "planta_m": 1.152,
+   "modelo_m": 1.181,
+   "dif_cm": 2.9
+  },
+  {
+   "medida": "Banho suíte — comprimento",
+   "planta_m": 2.338,
+   "modelo_m": 2.316,
+   "dif_cm": -2.2
+  },
+  {
+   "medida": "Varanda/serviço — largura",
+   "planta_m": 3.314,
+   "modelo_m": 3.33,
+   "dif_cm": 1.6
+  },
+  {
+   "medida": "Varanda — profundidade (parapeito→porta)",
+   "erro": "parede sem medição: 'varanda-porta-vidro'"
+  }
+ ]
+}
