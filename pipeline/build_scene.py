@@ -975,43 +975,18 @@ def bake_group(group, size):
 
 
 def denoise(img):
-    """Denoise (OpenImageDenoise) do lightmap via compositor em cena vazia."""
-    src = os.path.join(BUILD, f'{img.name}_raw.exr')
-    img.filepath_raw = src
-    img.file_format = 'OPEN_EXR'
-    img.save()
-    sc = bpy.data.scenes.new('denoise')
-    sc.render.resolution_x, sc.render.resolution_y = img.size
-    sc.render.resolution_percentage = 100
-    sc.render.engine = 'CYCLES'
-    sc.cycles.samples = 1
-    cam = bpy.data.objects.new('dn_cam', bpy.data.cameras.new('dn_cam'))
-    sc.collection.objects.link(cam)
-    sc.camera = cam
-    tree = bpy.data.node_groups.new('dn', 'CompositorNodeTree')
-    sc.compositing_node_group = tree
-    inode = tree.nodes.new('CompositorNodeImage')
-    inode.image = bpy.data.images.load(src)
-    dn = tree.nodes.new('CompositorNodeDenoise')
-    out = tree.nodes.new('NodeGroupOutput')
-    tree.interface.new_socket('Image', in_out='OUTPUT', socket_type='NodeSocketColor')
-    tree.links.new(inode.outputs['Image'], dn.inputs['Image'])
-    tree.links.new(dn.outputs['Image'], out.inputs[0])
-    sc.render.image_settings.file_format = 'OPEN_EXR'
-    dst = os.path.join(BUILD, f'{img.name}_dn.exr')
-    sc.render.filepath = dst
-    with bpy.context.temp_override(scene=sc):
-        bpy.ops.render.render(write_still=True, scene=sc.name)
-    res = bpy.data.images.load(dst)
-    bpy.data.scenes.remove(sc)
-    return res
-
-
-def write_lightmap(img, name):
+    """Denoise do lightmap com Intel Open Image Denoise (filtro RTLightmap, CPU)."""
+    import pyoidn  # instalado em /opt/pydeps (ver pipeline/README.md)
     w, h = img.size
     a = np.empty(w * h * 4, dtype=np.float32)
     img.pixels.foreach_get(a)
-    a = a.reshape(h, w, 4)[..., :3]
+    rgb = np.ascontiguousarray(a.reshape(h, w, 4)[..., :3])
+    np.save(os.path.join(BUILD, f'{img.name}_raw.npy'), rgb)
+    return pyoidn.denoise(rgb, filter_type='RTLightmap', quality='high')
+
+
+def write_lightmap(a, name):
+    h, w, _ = a.shape
     lu = lum(a)
     valid = lu[lu > 1e-5]
     k = 0.92 / max(np.percentile(valid, 99.7), 1e-4) if valid.size else 1.0
