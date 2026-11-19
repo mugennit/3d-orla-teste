@@ -1,6 +1,7 @@
 import { useGLTF, useTexture } from '@react-three/drei';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { suspend } from 'suspend-react';
 import * as THREE from 'three';
 
 /**
@@ -54,6 +55,25 @@ function prepareLightmap(t: THREE.Texture) {
   t.needsUpdate = true;
 }
 
+/**
+ * Prévia publicada como artifact (VITE_PACKED=1): o .glb vem em partes de texto
+ * base64 e é remontado como Blob no navegador. No deploy normal, usa o .glb direto.
+ */
+function useModelUrl(base: string, tier: string): string {
+  const direct = `${base}/${tier}/apto.glb`;
+  return suspend(async () => {
+    if (import.meta.env.VITE_PACKED !== '1') return direct;
+    const { parts } = (await (await fetch(`${base}/${tier}/pack.json`)).json()) as { parts: number };
+    const texts = await Promise.all(
+      Array.from({ length: parts }, (_, i) => fetch(`${base}/${tier}/apto.part${i}.txt`).then((r) => r.text())),
+    );
+    const bin = atob(texts.join(''));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([bytes], { type: 'model/gltf-binary' }));
+  }, ['photo-model', base, tier]);
+}
+
 export function PhotoApartment({
   config,
   tier,
@@ -65,7 +85,7 @@ export function PhotoApartment({
 }) {
   const base = config.baseUrl;
   const meta = JSON.parse(useLoader(THREE.FileLoader, `${base}/meta.json`) as string) as Meta;
-  const gltf = useGLTF(`${base}/${tier}/apto.glb`, false, true);
+  const gltf = useGLTF(useModelUrl(base, tier), false, true);
   const [lmArch, lmFurn] = useTexture([`${base}/${tier}/lm_arch.webp`, `${base}/${tier}/lm_furn.webp`]) as [
     THREE.Texture,
     THREE.Texture,
