@@ -1,4 +1,4 @@
-import { Html, OrbitControls, useTexture } from '@react-three/drei';
+import { Html, OrbitControls, OrthographicCamera, useTexture } from '@react-three/drei';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
@@ -16,15 +16,125 @@ interface Props {
   colliders: Collider[];
   /** Clique no piso: posiciona o visitante e volta ao modo visita. */
   onEnterAt: () => void;
-  /** Opacidade da planta original sobreposta; > 0 ativa a vista ortogonal de conferência. */
+  /** Opacidade da planta original sobreposta (0 = oculta). */
   overlayOpacity?: number;
+  /** Vista superior ortográfica verdadeira (perpendicular ao piso). */
+  topo?: boolean;
+  /** Exibe os balões com nome e área dos ambientes. */
+  showLabels?: boolean;
 }
 
 const TRANSITION = 0.9; // s
+/**
+ * Altura do plano de corte da planta (m), como numa planta humanizada: as paredes
+ * aparecem cortadas e os elementos altos (aéreos, pendente) não encobrem o piso.
+ * A referência das medidas é o pé das paredes (nível do piso).
+ */
+export const PLAN_CUT_HEIGHT = 1.5;
 
-/** Planta 3D vista de cima, com órbita, zoom, rótulos e "entrar aqui". */
-export function PlanView({ layout, bounds, colliders, onEnterAt, overlayOpacity = 0 }: Props) {
-  const compare = overlayOpacity > 0;
+/** Aplica o plano de corte horizontal enquanto a planta estiver aberta. */
+function useSectionCut() {
+  const gl = useThree((s) => s.gl);
+  useEffect(() => {
+    gl.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, -1, 0), PLAN_CUT_HEIGHT)];
+    return () => {
+      gl.clippingPlanes = [];
+    };
+  }, [gl]);
+}
+
+export function PlanView(props: Props) {
+  useSectionCut();
+  return props.topo ? <TopView {...props} /> : <PerspectivePlanView {...props} />;
+}
+
+/** Vista superior ORTOGRÁFICA: câmera diretamente acima, olhando a 90° para o piso. */
+function TopView({ layout, bounds, colliders, onEnterAt, overlayOpacity = 0, showLabels = true }: Props) {
+  const size = useThree((s) => s.size);
+  const scene = useThree((s) => s.scene);
+  // Fundo neutro claro na vista de topo (o céu equirretangular não faz sentido olhando para baixo).
+  useEffect(() => {
+    const prev = scene.background;
+    scene.background = new THREE.Color('#e7e4de');
+    return () => {
+      scene.background = prev;
+    };
+  }, [scene]);
+  const center = useMemo(
+    () => new THREE.Vector3((bounds.minX + bounds.maxX) / 2, 0, (bounds.minY + bounds.maxY) / 2),
+    [bounds],
+  );
+  // Enquadramento: px por metro para caber o apartamento com margem.
+  const zoom = useMemo(() => {
+    const w = bounds.maxX - bounds.minX + 0.8;
+    const h = bounds.maxY - bounds.minY + 0.8;
+    const usableH = size.height - (size.width < 640 ? 200 : 170); // barra superior e avisos
+    return Math.max(10, Math.min((size.width - 32) / w, usableH / h));
+  }, [bounds, size]);
+
+  const handleFloorClick = (e: ThreeEvent<MouseEvent>) => {
+    if (e.delta > 6) return;
+    e.stopPropagation();
+    teleport(resolvePosition([e.point.x, e.point.z], colliders, controls.playerRadius), 0);
+    playerState.pitch = 0;
+    onEnterAt();
+  };
+
+  return (
+    <>
+      {/* Câmera acima do centro, rotação −90° em X: olha para baixo com o "norte" da planta para cima. */}
+      <OrthographicCamera
+        makeDefault
+        position={[center.x, 40, center.z]}
+        up={[0, 0, -1]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        zoom={zoom}
+        near={0.1}
+        far={100}
+      />
+      <OrbitControls
+        target={center}
+        enableRotate={false}
+        enableDamping
+        dampingFactor={0.1}
+        screenSpacePanning
+        minZoom={zoom * 0.6}
+        maxZoom={zoom * 6}
+      />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[center.x, 0.02, center.z]} onClick={handleFloorClick} visible={false}>
+        <planeGeometry args={[bounds.maxX - bounds.minX, bounds.maxY - bounds.minY]} />
+      </mesh>
+      <PlayerMarker />
+      {overlayOpacity > 0 && layout.reference && <PlanOverlay layout={layout} opacity={overlayOpacity} />}
+      {showLabels && <RoomLabels layout={layout} />}
+    </>
+  );
+}
+
+function RoomLabels({ layout }: { layout: ApartmentLayout }) {
+  return (
+    <>
+      {layout.rooms.map((r) => {
+        const [x, y] = polygonCentroid(r.polygon);
+        const area = r.declaredArea ?? polygonArea(r.polygon);
+        return (
+          <Html key={r.id} position={[x, 0.1, y]} center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
+            <div className="room-label">
+              <span>{r.name}</span>
+              <small>
+                {area.toFixed(2).replace('.', ',')} m²{r.declaredArea ? '' : ' (modelado)'}
+              </small>
+            </div>
+          </Html>
+        );
+      })}
+    </>
+  );
+}
+
+/** Planta 3D em perspectiva (vista aérea inclinada), com órbita, zoom, rótulos e "entrar aqui". */
+function PerspectivePlanView({ layout, bounds, colliders, onEnterAt, showLabels = true }: Props) {
+  const compare = false;
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
   const orbit = useRef<OrbitControlsImpl>(null);
@@ -121,26 +231,7 @@ export function PlanView({ layout, bounds, colliders, onEnterAt, overlayOpacity 
 
       <PlayerMarker />
 
-      {compare && layout.reference && (
-        <PlanOverlay layout={layout} opacity={overlayOpacity} />
-      )}
-
-      {ready &&
-        !compare &&
-        layout.rooms.map((r) => {
-          const [x, y] = polygonCentroid(r.polygon);
-          const area = r.declaredArea ?? polygonArea(r.polygon);
-          return (
-            <Html key={r.id} position={[x, 0.1, y]} center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
-              <div className="room-label">
-                <span>{r.name}</span>
-                <small>
-                  {area.toFixed(2).replace('.', ',')} m²{r.declaredArea ? '' : ' (modelado)'}
-                </small>
-              </div>
-            </Html>
-          );
-        })}
+      {ready && showLabels && <RoomLabels layout={layout} />}
     </>
   );
 }
@@ -168,7 +259,10 @@ function PlayerMarker() {
   );
 }
 
-/** Imagem da planta original alinhada pela calibração, acima do topo das paredes. */
+/**
+ * Imagem da planta original alinhada pela calibração NO NÍVEL DO PISO (referência das
+ * medidas = pé das paredes). Desenhada por cima de tudo (sem teste de profundidade).
+ */
 function PlanOverlay({ layout, opacity }: { layout: ApartmentLayout; opacity: number }) {
   const ref = layout.reference!;
   const tex = useTexture(ref.url);
@@ -178,7 +272,7 @@ function PlanOverlay({ layout, opacity }: { layout: ApartmentLayout; opacity: nu
   const cx = (ref.sizePx[0] / 2 - ref.originPx[0]) / ref.pxPerMeter;
   const cz = (ref.sizePx[1] / 2 - ref.originPx[1]) / ref.pxPerMeter;
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, layout.ceilingHeight + 0.02, cz]} renderOrder={10}>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.01, cz]} renderOrder={10}>
       <planeGeometry args={[w, h]} />
       <meshBasicMaterial map={tex} transparent opacity={opacity} depthTest={false} depthWrite={false} toneMapped={false} />
     </mesh>

@@ -218,6 +218,7 @@ def build_materials():
              roughness=0.55, tile=0.4)
     make_mat('lacquer_white', base=lin('#efede8'), roughness=0.35)
     make_mat('ceramic_white', base=lin('#e9e6e0'), roughness=0.4)
+    make_mat('glass_dark', base=lin('#2a2e30'), roughness=0.05)
     make_mat('steel', color=acg('Metal009', 'Color'), normal=acg('Metal009', 'NormalGL'), nstrength=0.3,
              rough=processed('steel_rough', acg('Metal009', 'Roughness'), rough_fn(0.5, 0.12)), metallic=1.0, tile=0.5)
     make_mat('chrome', base=lin('#d8d8d8'), roughness=0.08, metallic=1.0)
@@ -372,8 +373,96 @@ def wall_frame(w):
     return fx, fy, ux, uy, ln
 
 
+GAP = 0.0007  # folga mínima entre peças encostadas: evita faces coincidentes (vazamento preto no lightmap)
+
+
+def clean_walls(solids):
+    """Gera as paredes como UMA malha sem sobreposições nem faces internas.
+
+    `solids`: lista de (polígono shapely na planta, z0, z1). Para cada faixa de altura entre
+    níveis consecutivos, une os polígonos sólidos naquela faixa e extruda só o contorno;
+    faces horizontais apenas onde a parede começa/termina (topo de peitoril, fundo de verga).
+    """
+    from shapely.geometry import Polygon, MultiPolygon
+    from shapely.geometry.polygon import orient
+    from shapely.ops import unary_union
+    from mathutils.geometry import tessellate_polygon
+
+    levels = sorted({round(z, 4) for _, a, b in solids for z in (a, b)})
+    bands = []
+    for a, b in zip(levels[:-1], levels[1:]):
+        polys = [poly for poly, z0, z1 in solids if z0 <= a + 1e-4 and z1 >= b - 1e-4]
+        u = unary_union(polys).buffer(0) if polys else Polygon()
+        bands.append((a, b, u.simplify(0.0003)))
+
+    bm = bmesh.new()
+
+    def parts(g):
+        if g.is_empty:
+            return []
+        return list(g.geoms) if isinstance(g, MultiPolygon) or hasattr(g, 'geoms') else [g]
+
+    def quad(p, q, z0, z1, out):
+        vs = [bm.verts.new(V(p[0], p[1], z0)), bm.verts.new(V(q[0], q[1], z0)),
+              bm.verts.new(V(q[0], q[1], z1)), bm.verts.new(V(p[0], p[1], z1))]
+        f = bm.faces.new(vs)
+        f.normal_update()
+        if f.normal.dot(Vector((out[0], -out[1], 0))) < 0:
+            f.normal_flip()
+
+    def cap(poly, z, up):
+        poly = orient(poly, 1.0)
+        loops = [list(poly.exterior.coords)[:-1]] + [list(r.coords)[:-1] for r in poly.interiors]
+        flat = [pt for lp in loops for pt in lp]
+        tris = tessellate_polygon([[Vector((x, y, 0)) for x, y in lp] for lp in loops])
+        vs = [bm.verts.new(V(x, y, z)) for x, y in flat]
+        for t in tris:
+            try:
+                f = bm.faces.new([vs[i] for i in t])
+            except ValueError:
+                continue
+            f.normal_update()
+            if (f.normal.z > 0) != up:
+                f.normal_flip()
+
+    for a, b, u in bands:
+        for poly in parts(u):
+            poly = orient(poly, 1.0)  # exterior anti-horário, furos horário (coordenadas da planta)
+            for ring in [poly.exterior, *poly.interiors]:
+                c = list(ring.coords)
+                for p, q in zip(c[:-1], c[1:]):
+                    dx, dy = q[0] - p[0], q[1] - p[1]
+                    if dx * dx + dy * dy < 1e-10:
+                        continue
+                    quad(p, q, a, b, (dy, -dx))
+    # faces horizontais nas transições entre faixas (exceto piso e topo, nunca visíveis)
+    for i in range(1, len(bands)):
+        below, above, z = bands[i - 1][2], bands[i][2], bands[i][0]
+        for poly in parts(below.difference(above).buffer(0)):
+            if poly.area > 1e-6:
+                cap(poly, z, up=True)
+        for poly in parts(above.difference(below).buffer(0)):
+            if poly.area > 1e-6:
+                cap(poly, z, up=False)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0002)
+    world_uv(bm, TILE['paint'])
+    return mesh_obj('ARQ_paredes', bm, 'paint', 'ARCH')
+
+
+def piece_polygon(p):
+    from shapely.geometry import Polygon
+    cx, cy = p['center']
+    a = p['angle']
+    ux, uy = math.cos(a), math.sin(a)
+    nx, ny = -uy, ux
+    hl, ht = p['length'] / 2, p['thickness'] / 2
+    return Polygon([(cx + ux * sx * hl + nx * sy * ht, cy + uy * sx * hl + ny * sy * ht)
+                    for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))])
+
+
 def build_architecture():
     walls = []
+    solids = []
     glass = []
     details = []
     for w in L['walls']:
@@ -386,20 +475,20 @@ def build_architecture():
                 details.append(box(f"{w['id']}_corrimao", 'alu', (p['length'] + 0.02, 0.045, 0.045),
                                    V(p['center'][0], p['center'][1], p['top'] - 0.0225), ang, group='ARCH', bevel=0.004))
             continue
-        for i, p in enumerate(w['pieces']):
-            walls.append(box(f"{w['id']}_{i}", mat, (p['length'], p['thickness'], p['top'] - p['bottom']),
-                             V(p['center'][0], p['center'][1], (p['bottom'] + p['top']) / 2), -p['angle'], group='ARCH'))
+        for p in w['pieces']:
+            solids.append((piece_polygon(p), p['bottom'], p['top']))
         for o in w['openings']:
             details += build_opening(w, o, glass)
         for lf in w['leaves']:
             details += build_leaf(w, lf)
 
-    for s in L['shafts']:
-        x, y = s['position']
-        sx, _, sy = s['size']
-        walls.append(plan_box(s['id'], 'paint', x - sx / 2, y - sy / 2, x + sx / 2, y + sy / 2, 0, H, group='ARCH'))
+    from shapely.geometry import box as sbox
+    for sh in L['shafts']:
+        x, y = sh['position']
+        sx, _, sy = sh['size']
+        solids.append((sbox(x - sx / 2, y - sy / 2, x + sx / 2, y + sy / 2), 0.0, H))
 
-    join(walls, 'ARQ_paredes')['lightmap'] = 'arch'
+    clean_walls(solids)['lightmap'] = 'arch'
     d = join(details, 'ARQ_esquadrias')
     if d:
         d['lightmap'] = 'arch'
@@ -446,7 +535,7 @@ def build_architecture():
         w = walls_by_id[run['wall']]
         fx, fy, ux, uy, ln = wall_frame(w)
         nx, ny = -uy, ux
-        off = run['side'] * (w['thickness'] / 2 + 0.006)
+        off = run['side'] * (w['thickness'] / 2 + 0.006 + GAP)
         t0, t1 = run['t0'], run['t1']
         cx = fx + ux * (t0 + t1) / 2 + nx * off
         cy = fy + uy * (t0 + t1) / 2 + ny * off
@@ -472,12 +561,13 @@ def build_opening(w, o, glass):
     if kind == 'door':
         lin_w = th + 0.02
         # Batentes (marco) e guarnições nas duas faces — laca branca.
-        for t in (t0 + 0.015, t1 - 0.015):
-            out.append(box(f"{o['id']}_marco", 'lacquer_white', (0.03, lin_w, head), along(w, t, 0, head / 2), ang, group='ARCH'))
+        for t in (t0 + 0.015 + GAP, t1 - 0.015 - GAP):
+            out.append(box(f"{o['id']}_marco", 'lacquer_white', (0.03, lin_w, head - GAP), along(w, t, 0, (head - GAP) / 2), ang,
+                           group='ARCH', bevel=0.002, segments=1))
         out.append(box(f"{o['id']}_marco_sup", 'lacquer_white', (o['width'], lin_w, 0.03), along(w, (t0 + t1) / 2, 0, head - 0.015),
                        ang, group='ARCH'))
         for side in (1, -1):
-            n = side * (th / 2 + 0.005)
+            n = side * (th / 2 + 0.005 + GAP)
             for t in (t0 - 0.03, t1 + 0.03):
                 out.append(box(f"{o['id']}_guarn", 'lacquer_white', (0.07, 0.01, head + 0.07), along(w, t, n, (head + 0.07) / 2),
                                ang, group='ARCH', bevel=0.002, segments=1))
@@ -489,7 +579,7 @@ def build_opening(w, o, glass):
         prof = 0.045
         depth = min(0.07, th)
         h = head - sill
-        for t in (t0 + prof / 2, t1 - prof / 2):
+        for t in (t0 + prof / 2 + GAP, t1 - prof / 2 - GAP):
             out.append(box(f"{o['id']}_alu", 'alu', (prof, depth, h), along(w, t, 0, sill + h / 2), ang, group='ARCH', bevel=0.003))
         out.append(box(f"{o['id']}_alu_sup", 'alu', (o['width'], depth, prof), along(w, (t0 + t1) / 2, 0, head - prof / 2), ang,
                        group='ARCH', bevel=0.003))
@@ -779,6 +869,37 @@ def build_kitchen():
     go['lightmap'] = 'furn'
 
 
+def build_service():
+    """Máquina de lavar (abertura superior) e tanque, conforme desenhados na planta."""
+    wm = item('maquina')
+    x0, y0, x1, y1 = wm['rect']
+    h = wm['z'][1]
+    p = [plan_box('maq_corpo', 'lacquer_white', x0 + GAP, y0 + GAP, x1, y1, 0.0, h - 0.04, bevel=0.012, segments=3),
+         plan_box('maq_tampa', 'lacquer_white', x0 + 0.02, y0 + 0.13, x1 - 0.02, y1 - 0.02, h - 0.04, h - 0.02, bevel=0.01, segments=3),
+         plan_box('maq_visor', 'glass_dark', x0 + 0.08, y0 + 0.2, x1 - 0.08, y1 - 0.08, h - 0.02, h - 0.015, bevel=0.01),
+         plan_box('maq_painel', 'lacquer_white', x0 + GAP, y0 + GAP, x1, y0 + 0.12, h - 0.04, h + 0.08, bevel=0.012, segments=3),
+         plan_box('maq_display', 'black_glass', x0 + 0.15, y0 + 0.118, x1 - 0.15, y0 + 0.125, h - 0.01, h + 0.06, bevel=0.003)]
+    o = join(p, 'MOV_maquina')
+    o['lightmap'] = 'furn'
+    tq = item('tanque')
+    x0, y0, x1, y1 = tq['rect']
+    h = tq['z'][1]
+    body = plan_box('tanque_corpo', 'ceramic_white', x0 + GAP, y0, x1, y1, 0.0, h, bevel=0.01, segments=3)
+    cut = plan_box('tanque_cuba', 'ceramic_white', x0 + 0.06, y0 + 0.05, x1 - 0.05, y1 - 0.05, h - 0.22, h + 0.1, bevel=0.03, segments=3)
+    mod = body.modifiers.new('cuba', 'BOOLEAN')
+    mod.object = cut
+    mod.operation = 'DIFFERENCE'
+    bpy.context.view_layer.objects.active = body
+    for ob_ in bpy.context.view_layer.objects:
+        ob_.select_set(ob_ == body)
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.data.objects.remove(cut)
+    tor = plan_box('tanque_torneira', 'chrome', x0 + 0.015, (y0 + y1) / 2 - 0.012, x0 + 0.1, (y0 + y1) / 2 + 0.012, h + 0.15, h + 0.17, bevel=0.008)
+    tb = plan_box('tanque_torneira_base', 'chrome', x0 + 0.005, (y0 + y1) / 2 - 0.02, x0 + 0.03, (y0 + y1) / 2 + 0.02, h + 0.05, h + 0.2, bevel=0.008)
+    t = join([body, tor, tb], 'MOV_tanque')
+    t['lightmap'] = 'furn'
+
+
 def import_asset(asset, name):
     USED.add('Poly Haven:' + asset)
     path = os.path.join(ASSETS, 'ph', asset, '2k', f'{asset}.gltf')
@@ -801,6 +922,42 @@ def import_asset(asset, name):
             bpy.data.objects.remove(o)
     ob = join(meshes, name)
     return ob
+
+
+def model_front(ob):
+    """Frente do assento a partir da geometria: oposta ao encosto (vértices altos) em relação ao assento."""
+    vs = [ob.matrix_world @ v.co for v in ob.data.vertices]
+    zmin, zmax = min(v.z for v in vs), max(v.z for v in vs)
+    h = zmax - zmin
+    top = [v for v in vs if v.z > zmax - 0.15 * h]
+    mid = [v for v in vs if zmin + 0.40 * h < v.z < zmin + 0.52 * h]
+    c = lambda L_: sum(L_, Vector()) / len(L_)  # noqa: E731
+    back = c(top) - c(mid)
+    f = Vector((-back.x, -back.y))
+    return f.normalized()
+
+
+CHECKS = []
+
+
+def check_seat(ob, it):
+    """Verificação automática: assento voltado para a mesa, apoiado no piso, sem invadir a mesa."""
+    mesa = item('mesa')
+    x0, y0, x1, y1 = mesa['rect']
+    tx, ty = (x0 + x1) / 2, (y0 + y1) / 2
+    vs = [ob.matrix_world @ v.co for v in ob.data.vertices]
+    cx = sum(v.x for v in vs) / len(vs)
+    cy = sum(v.y for v in vs) / len(vs)
+    want = Vector((1, 0)) if it['facing'] == '+x' else Vector((-1, 0))
+    f = model_front(ob)
+    zmin = min(v.z for v in vs)
+    tz = mesa['z'][1]
+    # nenhum vértice acima da altura do tampo-10 cm dentro do retângulo da mesa
+    inv = [v for v in vs if v.z > tz - 0.1 and x0 + 0.005 < v.x < x1 - 0.005 and -y1 + 0.005 < v.y < -y0 - 0.005]
+    res = {'id': it['id'], 'frente·direção_mesa': round(f.dot(want), 3), 'apoio_z': round(zmin, 4),
+           'vertices_invadindo_mesa': len(inv), 'ok': f.dot(want) > 0.97 and abs(zmin) < 0.005 and not inv}
+    CHECKS.append(res)
+    print('[check]', res, flush=True)
 
 
 def chair_texture(src):
@@ -832,12 +989,18 @@ def place_assets():
         cy = sum((ob.matrix_world @ Vector(c)).y for c in ob.bound_box) / 8
         bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
         rot = FACING.get(it.get('facing'), 0.0) + math.radians(-(it.get('rotation') or 0))
-        if it['asset'] == 'dining_chair_02':
-            rot = FACING[it['facing']] + math.pi / 2  # frente do modelo = −Y
+        if it.get('facing') and it['asset'] == 'dining_chair_02':
+            # rotação calculada pela geometria do próprio modelo (não por suposição do eixo frontal)
+            bpy.context.view_layer.update()
+            f = model_front(ob)
+            rot = FACING[it['facing']] - math.atan2(f.y, f.x)
         z_base = (it.get('z') or [0, 0])[0]
         if it['asset'] == 'modern_ceiling_lamp_01':
             z_base = H - (max((ob.matrix_world @ Vector(c)).z for c in ob.bound_box) - mn)
         ob.location = V(it['at'][0], it['at'][1], 0) + Vector((0, 0, z_base + (ob.location.z - mn)))
+        # O importador glTF usa rotação em quaternion: sem trocar o modo, rotation_euler é ignorado
+        # (causa raiz das cadeiras na orientação errada).
+        ob.rotation_mode = 'XYZ'
         ob.rotation_euler = (0, 0, rot)
         # Ajustes de material para o estilo do book.
         for slot in ob.material_slots:
@@ -849,9 +1012,12 @@ def place_assets():
                 for n in m.node_tree.nodes:
                     if n.type == 'TEX_IMAGE' and n.image and 'diff' in n.image.name:
                         n.image = bpy.data.images.load(chair_texture(n.image.filepath_from_user()), check_existing=True)
-            if it['asset'] == 'potted_plant_02' and nm.endswith('_pot'):
+            if it['asset'] in ('potted_plant_02', 'potted_plant_01') and nm.endswith('_pot'):
                 slot.material = MATS['ceramic_white']
         ob['lightmap'] = 'furn' if it['asset'] == 'dining_chair_02' else ''
+        if it['asset'] == 'dining_chair_02':
+            bpy.context.view_layer.update()
+            check_seat(ob, it)
         if it['asset'] == 'dining_chair_02':
             tinted[it['id']] = ob
     return tinted
@@ -1099,6 +1265,7 @@ def main():
     build_rack_tv_art()
     build_table()
     build_kitchen()
+    build_service()
     place_assets()
     build_lighting()
 
@@ -1129,6 +1296,10 @@ def main():
                               export_normals=True, export_materials='EXPORT', export_image_format='AUTO',
                               export_lights=False, export_cameras=False)
     json.dump(meta, open(os.path.join(BUILD, 'bake_meta.json'), 'w'), indent=1)
+    json.dump(CHECKS, open(os.path.join(BUILD, 'checks.json'), 'w'), indent=1, ensure_ascii=False)
+    if not all(c['ok'] for c in CHECKS):
+        print('[check] FALHOU: posicionamento/orientação inválidos', flush=True)
+        sys.exit(2)
     credits = json.load(open(os.path.join(ASSETS, 'credits.json')))
     json.dump({k: v for k, v in credits.items() if k in USED}, open(os.path.join(BUILD, 'credits_used.json'), 'w'), indent=1,
               ensure_ascii=False)

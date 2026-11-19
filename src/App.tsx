@@ -37,6 +37,24 @@ export default function App() {
   const [locked, setLocked] = useState(false);
   const [help, setHelp] = useState(false);
   const [overlay, setOverlay] = useState(0);
+  // Planta: vista ortográfica (topo) ou 3D em perspectiva; balões visíveis (lembrado entre visitas).
+  const [planTopo, setPlanTopo] = useState(true);
+  const [showLabels, setShowLabels] = useState(() => {
+    try {
+      return localStorage.getItem('tour.labels') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const toggleLabels = () =>
+    setShowLabels((v) => {
+      try {
+        localStorage.setItem('tour.labels', v ? '0' : '1');
+      } catch {
+        /* armazenamento indisponível */
+      }
+      return !v;
+    });
 
   const walking = started && mode === 'walk';
   useKeyboard(walking && !help);
@@ -84,7 +102,9 @@ export default function App() {
           isTouch={isTouch}
           onLockChange={setLocked}
           onEnterAt={enterAt}
-          overlayOpacity={mode === 'plan' ? overlay : 0}
+          overlayOpacity={mode === 'plan' && planTopo ? overlay : 0}
+          planTopo={planTopo}
+          showLabels={showLabels}
           photo={PHOTO}
         />
       </div>
@@ -144,14 +164,43 @@ export default function App() {
       )}
 
       {started && mode === 'plan' && overlay === 0 && (
-        <div className="hint-pill">{isTouch ? 'Toque no piso' : 'Clique no piso'} para entrar naquele ponto · arraste para girar</div>
+        <div className="hint-pill">
+          {isTouch ? 'Toque no piso' : 'Clique no piso'} para entrar naquele ponto · {planTopo ? 'arraste para mover' : 'arraste para girar'}
+        </div>
       )}
 
-      {started && mode === 'plan' && layout.reference && (
+      {started && mode === 'plan' && (
         <div className="compare-panel">
-          <button className={`compare-toggle${overlay > 0 ? ' is-on' : ''}`} onClick={() => setOverlay(overlay > 0 ? 0 : 0.6)}>
+          <div className="segmented plan-views" role="tablist" aria-label="Tipo de planta">
+            <button role="tab" aria-selected={planTopo} className={planTopo ? 'is-on' : ''} onClick={() => setPlanTopo(true)}>
+              Topo
+            </button>
+            <button
+              role="tab"
+              aria-selected={!planTopo}
+              className={!planTopo ? 'is-on' : ''}
+              onClick={() => {
+                setPlanTopo(false);
+                setOverlay(0);
+              }}
+            >
+              3D
+            </button>
+          </div>
+          <button className={`compare-toggle${showLabels ? '' : ' is-on'}`} onClick={toggleLabels} aria-pressed={!showLabels}>
+            {showLabels ? 'Ocultar nomes dos ambientes' : 'Mostrar nomes dos ambientes'}
+          </button>
+          {layout.reference && (
+          <button
+            className={`compare-toggle${overlay > 0 ? ' is-on' : ''}`}
+            onClick={() => {
+              setPlanTopo(true);
+              setOverlay(overlay > 0 ? 0 : 0.6);
+            }}
+          >
             {overlay > 0 ? 'Ocultar planta original' : 'Comparar com a planta original'}
           </button>
+          )}
           {overlay > 0 && (
             <label className="compare-slider">
               <span>Transparência</span>

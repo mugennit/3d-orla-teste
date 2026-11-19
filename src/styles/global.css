@@ -230,6 +230,16 @@ button {
   font-weight: 500;
 }
 
+.plan-views {
+  align-self: stretch;
+  justify-content: stretch;
+}
+
+.plan-views button {
+  flex: 1;
+  justify-content: center;
+}
+
 .compare-toggle.is-on {
   background: var(--gold);
   color: var(--ink);

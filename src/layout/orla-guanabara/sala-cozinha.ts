@@ -28,6 +28,8 @@ export type ZoneItemKind =
   | 'backsplash'
   | 'fridge'
   | 'wall-art'
+  | 'washer'
+  | 'laundry-sink'
   | 'asset';
 
 export interface ZoneItem {
@@ -77,6 +79,11 @@ export const salaCozinha: ZoneItem[] = [
   { id: 'revestimento', kind: 'backsplash', rectPx: [50, 451, 50, 606], z: [0.9, 1.78], origin: 'book', note: 'Revestimento verde-azulado em peças verticais.' },
   { id: 'prateleira', kind: 'kitchen-shelf', rectPx: [50, 451, 75, 606], z: [1.4, 1.43], origin: 'book', note: 'Prateleira com fita de LED (perspectiva).' },
   { id: 'aereo', kind: 'kitchen-upper', rectPx: [50, 451, 78, 662], z: [1.78, 2.46], origin: 'book', note: 'Armário aéreo em madeira clara; módulo ripado na extremidade.' },
+
+  // ---------------- Área de serviço (elementos desenhados na planta; interpretação da varanda provisória) ----------------
+  { id: 'maquina', kind: 'washer', rectPx: [53, 332, 103, 380], z: [0, 0.95], solid: true, origin: 'book', note: 'Máquina de lavar de abertura superior (tambor visto de cima na planta).' },
+  { id: 'tanque', kind: 'laundry-sink', rectPx: [73, 395, 107, 438], z: [0, 0.86], solid: true, origin: 'book', note: 'Tanque ao lado do shaft/aquecedor.' },
+  { id: 'planta-varanda', kind: 'asset', asset: 'potted_plant_01', atPx: [276, 360], scale: 0.85, solid: false, origin: 'book', note: 'Vaso com planta no canto da varanda.' },
 
   // ---------------- Decoração ----------------
   { id: 'planta-rack', kind: 'asset', asset: 'potted_plant_02', atPx: [297, 586], z: [0.52, 0.52], scale: 0.62, origin: 'book' },

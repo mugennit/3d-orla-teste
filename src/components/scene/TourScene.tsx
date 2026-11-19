@@ -26,11 +26,15 @@ interface Props {
   onEnterAt: () => void;
   /** Opacidade da planta original sobreposta (0 = oculta). */
   overlayOpacity?: number;
+  /** Planta em vista ortográfica (topo) em vez de perspectiva. */
+  planTopo?: boolean;
+  /** Balões com nome/área dos ambientes na planta. */
+  showLabels?: boolean;
   /** Cena fotorrealista (Blender + luz pré-calculada). Sem ela, usa a geometria provisória. */
   photo?: PhotoSceneConfig & { colliders: Furniture[] };
 }
 
-export function TourScene({ layout, mode, active, isTouch, onLockChange, onEnterAt, overlayOpacity = 0, photo }: Props) {
+export function TourScene({ layout, mode, active, isTouch, onLockChange, onEnterAt, overlayOpacity = 0, planTopo = true, showLabels = true, photo }: Props) {
   const colliders = useMemo(
     () => buildColliders(photo ? { ...layout, furniture: [...layout.furniture, ...photo.colliders] } : layout),
     [layout, photo],
@@ -76,7 +80,7 @@ export function TourScene({ layout, mode, active, isTouch, onLockChange, onEnter
             onLockChange={onLockChange}
           />
         ) : (
-          <PlanView layout={layout} bounds={bounds} colliders={colliders} onEnterAt={onEnterAt} overlayOpacity={overlayOpacity} />
+          <PlanView layout={layout} bounds={bounds} colliders={colliders} onEnterAt={onEnterAt} overlayOpacity={overlayOpacity} topo={planTopo} showLabels={showLabels} />
         )}
         <Preload all />
         {SHOW_FPS && <Stats />}
