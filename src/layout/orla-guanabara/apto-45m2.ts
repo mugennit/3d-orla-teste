@@ -282,7 +282,7 @@ export const orla45m2: ApartmentLayout = {
   northAngle: 0, // orientação solar desconhecida — A CONFIRMAR
   envelope: ENVELOPE_PX.map(P),
   reference: {
-    url: '/referencias/orla-45m2-planta-p17.png',
+    url: 'referencias/orla-45m2-planta-p17.png',
     sizePx: [720, 520],
     originPx: [ORIGIN_PX[0] - CROP_PX[0], ORIGIN_PX[1] - CROP_PX[1]],
     pxPerMeter: PX_PER_M,
