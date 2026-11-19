@@ -16,10 +16,20 @@ import { copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from '
 const BUILD = '.cache/build';
 const OUT = 'public/cenas/orla-45m2';
 
+/**
+ * Resolução por tipo de textura (sem perda visível):
+ *  - hero: peças com UV única e muito vistas de perto (cadeiras, planta) → maior resolução;
+ *  - tiled: materiais repetidos em metros (porcelanato 0,6 m, tecido, granito, madeira…) —
+ *    1024 px já dá < 1 mm por pixel no computador;
+ *  - small: objetos pequenos de decoração.
+ */
 const profiles = {
-  desktop: { tex: 2048, lm: 4096, quality: 88 },
-  mobile: { tex: 1024, lm: 2048, quality: 82 },
+  desktop: { hero: 2048, tiled: 1024, small: 1024, lm: 4096, quality: 88 },
+  mobile: { hero: 1024, tiled: 512, small: 512, lm: 2048, quality: 80 },
 };
+const HERO = /dining_chair|chair_upholstery|potted_plant_02/;
+const SMALL = /wooden_spoon|cutting_board|potted_plant_04|ceramic_vase|wooden_bowl|ceiling_lamp/;
+const TILED = new RegExp(`^(?!.*(${HERO.source}|${SMALL.source})).*$`);
 
 await MeshoptEncoder.ready;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.encoder': MeshoptEncoder });
@@ -30,12 +40,21 @@ for (const [name, p] of Object.entries(profiles)) {
   const dir = `${OUT}/${name}`;
   mkdirSync(dir, { recursive: true });
   const doc = await io.read(`${BUILD}/apto.glb`);
+  // Os filtros por padrão testam nome e URI: usa o nome como URI para classificar corretamente.
+  for (const t of doc.getRoot().listTextures()) {
+    const mime = t.getMimeType();
+    const ext = mime === 'image/jpeg' ? '.jpg' : mime === 'image/webp' ? '.webp' : '.png';
+    t.setURI((t.getName() || 'tex') + ext);
+    t.setMimeType(mime);
+  }
   await doc.transform(
     dedup(),
     prune({ keepAttributes: true }), // preserva TEXCOORD_1 (UV dos lightmaps, usada só no tour)
     weld(),
     resample(),
-    textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [p.tex, p.tex], quality: p.quality }),
+    textureCompress({ encoder: sharp, targetFormat: 'webp', pattern: HERO, resize: [p.hero, p.hero], quality: p.quality }),
+    textureCompress({ encoder: sharp, targetFormat: 'webp', pattern: SMALL, resize: [p.small, p.small], quality: p.quality }),
+    textureCompress({ encoder: sharp, targetFormat: 'webp', pattern: TILED, resize: [p.tiled, p.tiled], quality: p.quality }),
     meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
   );
   await io.write(`${dir}/apto.glb`, doc);

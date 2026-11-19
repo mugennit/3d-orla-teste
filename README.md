@@ -4,7 +4,11 @@ Plataforma de tours virtuais 3D para apresentações de lançamentos imobiliári
 Primeiro projeto: apartamento de 2 quartos com suíte e varanda (45,66 m²) do
 empreendimento **Orla Guanabara**, Niterói/RJ.
 
-> ⚠️ **Status — Etapa 1:** geometria do apartamento construída a partir da planta
+> 🟡 **Status — Etapa 2:** sala integrada à cozinha com acabamento fotorrealista
+> (PBR, iluminação pré-calculada) para avaliação — ver [`docs/etapa2/AVALIACAO.md`](docs/etapa2/AVALIACAO.md).
+> Pipeline em [`pipeline/README.md`](pipeline/README.md). `?cena=geometria` mostra a geometria da Etapa 1.
+>
+> ⚠️ **Etapa 1:** geometria do apartamento construída a partir da planta
 > da p. 17 do book (sem cotas — **medidas estimadas**, identificadas no código) e
 > **em conferência**: ver [`docs/etapa1/CONFERENCIA.md`](docs/etapa1/CONFERENCIA.md).
 > O visual atual é provisório; o fotorrealismo é a próxima etapa.

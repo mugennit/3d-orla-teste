@@ -21,7 +21,7 @@ import { LoadingOverlay } from './components/ui/LoadingOverlay';
  * publicados, fica desativada por padrão; `?cena=foto` força a ativação e
  * `?cena=geometria` força a geometria provisória da Etapa 1.
  */
-const PHOTO_READY = false;
+const PHOTO_READY = true;
 const cenaParam = new URLSearchParams(window.location.search).get('cena');
 const PHOTO = cenaParam === 'foto' || (PHOTO_READY && cenaParam !== 'geometria') ? orlaPhotoScene : undefined;
 
@@ -97,7 +97,9 @@ export default function App() {
       {layout.status === 'draft' && (
         <div className="provisional-banner is-draft" role="status">
           {PHOTO
-            ? 'Etapa 2 · sala e cozinha em avaliação · demais ambientes sem acabamento · medidas estimadas'
+            ? isTouch
+              ? 'Etapa 2 · sala e cozinha em avaliação'
+              : 'Etapa 2 · sala e cozinha em avaliação · demais ambientes sem acabamento · medidas estimadas'
             : 'Etapa 1 · geometria em conferência · medidas estimadas · visual provisório'}
         </div>
       )}

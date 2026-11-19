@@ -44,7 +44,7 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
 
   const s0 = await state(page);
   await page.keyboard.down('KeyW');
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(6000); // longo: sem GPU a cena roda a poucos quadros por segundo
   await page.keyboard.up('KeyW');
   await page.waitForTimeout(400);
   const s1 = await state(page);
@@ -71,6 +71,14 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
   check(s3.p[1] >= 0.35 - 0.02 && s3.p[1] < 0.6, `Colisão: visitante parou na parede da janela (y = ${s3.p[1].toFixed(3)})`);
   await page.screenshot({ path: `${out}/desktop-2-parede.png` });
 
+  // Colisão com o mobiliário: anda contra a bancada da cozinha (frente em x ≈ 0,69 m → para em ≈ 0,94 m).
+  await page.evaluate(() => { const t = window.__tour; t.position = [1.6, 2.9]; t.yaw = Math.PI / 2; t.pitch = 0; t.teleportVersion++; });
+  await page.keyboard.down('KeyW');
+  await page.waitForTimeout(6000);
+  await page.keyboard.up('KeyW');
+  const sk = await state(page);
+  check(sk.p[0] >= 0.92 && sk.p[0] < 1.3, `Colisão: visitante parou na bancada da cozinha (x = ${sk.p[0].toFixed(3)})`);
+
   await page.evaluate(() => document.exitPointerLock());
   await page.waitForTimeout(200);
   await page.keyboard.press('Tab');
@@ -96,7 +104,7 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
   await m.waitForSelector('.btn-primary');
   await m.waitForTimeout(1500);
   await m.screenshot({ path: `${out}/mobile-1-inicio.png` });
-  await m.tap('.btn-primary');
+  await m.tap('.btn-primary', { timeout: 120000 });
   await m.waitForTimeout(500);
   await waitLoaded(m);
   check(await m.locator('.joystick-base').count() === 1, 'Celular: joystick virtual visível');

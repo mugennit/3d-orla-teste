@@ -33,6 +33,17 @@ const KEEP_IBL_SPECULAR = THREE.ShaderChunk.lights_fragment_maps.replace(
   'lightMapTexel.rgb * lightMapIntensity * vec3( 1.06, 1.0, 0.92 )',
 );
 
+/** Ajuste fino de materiais no tour (sem novo bake). Chave = nome do material no glTF. */
+const MATERIAL_TUNING: Record<string, (m: THREE.MeshStandardMaterial) => void> = {
+  // inox escovado: textura de origem escura demais para um eletrodoméstico
+  steel: (m) => {
+    m.color.setRGB(2.1, 2.1, 2.15);
+    m.roughness = 0.85;
+  },
+  // tinta off-white levemente mais quente
+  paint: (m) => m.color.setRGB(1.03, 1.0, 0.96),
+};
+
 function prepareLightmap(t: THREE.Texture) {
   t.flipY = false;
   t.colorSpace = THREE.SRGBColorSpace;
@@ -84,6 +95,10 @@ export function PhotoApartment({
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       const next = mats.map((m) => {
         const std = m as THREE.MeshStandardMaterial;
+        if (std.isMeshStandardMaterial && !std.userData.tuned) {
+          MATERIAL_TUNING[std.name]?.(std);
+          std.userData.tuned = true;
+        }
         if (!group || !std.isMeshStandardMaterial) {
           std.envMapIntensity = 1;
           return std;
