@@ -1,0 +1,586 @@
+:root {
+  --ink: #0f1a24;
+  --ink-2: #1c2b38;
+  --gold: #c9a96e;
+  --gold-2: #e2c99a;
+  --cream: #f4efe6;
+  --glass: rgba(15, 26, 36, 0.62);
+  --glass-light: rgba(244, 239, 230, 0.9);
+  --line: rgba(244, 239, 230, 0.16);
+  --radius: 14px;
+  --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--ink);
+  color: var(--cream);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.app {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+}
+
+.canvas-wrap {
+  position: absolute;
+  inset: 0;
+}
+
+.canvas-wrap canvas {
+  display: block;
+  touch-action: none;
+}
+
+/* ---------- Barra superior ---------- */
+.topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(12px + var(--safe-top)) calc(16px + var(--safe-right)) 12px calc(16px + var(--safe-left));
+  background: linear-gradient(to bottom, rgba(15, 26, 36, 0.7), rgba(15, 26, 36, 0));
+  pointer-events: none;
+  z-index: 20;
+}
+
+.topbar > * {
+  pointer-events: auto;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.brand-name {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.05;
+  color: var(--cream);
+}
+
+.brand-sub {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.segmented {
+  display: flex;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.segmented button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(244, 239, 230, 0.8);
+  transition: background 0.2s, color 0.2s;
+}
+
+.segmented button.is-on {
+  background: var(--gold);
+  color: var(--ink);
+}
+
+.segmented button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: background 0.2s;
+}
+
+.icon-btn:hover,
+.segmented button:not(.is-on):not(:disabled):hover {
+  background: rgba(244, 239, 230, 0.12);
+}
+
+/* ---------- Faixa provisória ---------- */
+.provisional-banner {
+  position: absolute;
+  left: 50%;
+  bottom: calc(18px + var(--safe-bottom));
+  transform: translateX(-50%);
+  z-index: 15;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(179, 38, 30, 0.88);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.is-touch .provisional-banner {
+  bottom: auto;
+  top: calc(70px + var(--safe-top));
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  padding: 5px 12px;
+  max-width: calc(100% - 32px);
+  white-space: normal;
+  text-align: center;
+}
+
+/* ---------- Indicadores ---------- */
+.room-indicator {
+  position: absolute;
+  top: calc(78px + var(--safe-top));
+  left: calc(16px + var(--safe-left));
+  z-index: 10;
+  padding: 7px 14px;
+  border-left: 2px solid var(--gold);
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-family: var(--serif);
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  border-radius: 0 8px 8px 0;
+  pointer-events: none;
+  animation: fade-in 0.4s ease;
+}
+
+.is-touch .room-indicator {
+  top: calc(108px + var(--safe-top));
+}
+
+.crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1.5px rgba(15, 26, 36, 0.4);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.hint-pill {
+  position: absolute;
+  left: 50%;
+  top: calc(82px + var(--safe-top));
+  transform: translateX(-50%);
+  z-index: 10;
+  max-width: calc(100% - 32px);
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+  animation: fade-in 0.4s ease;
+}
+
+.is-touch .hint-pill {
+  top: auto;
+  bottom: calc(24px + var(--safe-bottom));
+}
+
+.keys-hint {
+  position: absolute;
+  right: calc(16px + var(--safe-right));
+  bottom: calc(16px + var(--safe-bottom));
+  z-index: 10;
+  font-size: 12px;
+  color: rgba(244, 239, 230, 0.85);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 22px;
+  margin: 0 2px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid rgba(244, 239, 230, 0.35);
+  background: rgba(15, 26, 36, 0.5);
+  font-family: var(--sans);
+  font-size: 11px;
+  text-align: center;
+}
+
+/* ---------- Controles de toque ---------- */
+.look-zone {
+  position: absolute;
+  top: calc(64px + var(--safe-top));
+  right: 0;
+  bottom: 0;
+  width: 55%;
+  z-index: 8;
+  touch-action: none;
+}
+
+.joystick-zone {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: min(45%, 240px);
+  height: 240px;
+  z-index: 9;
+  touch-action: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 0 0 calc(28px + var(--safe-bottom)) calc(28px + var(--safe-left));
+}
+
+.joystick-base {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(15, 26, 36, 0.25), rgba(15, 26, 36, 0.5));
+  border: 1.5px solid rgba(244, 239, 230, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  transition: border-color 0.2s;
+}
+
+.joystick-base.is-active {
+  border-color: var(--gold);
+}
+
+.joystick-knob {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--cream), #d8cfbf);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  will-change: transform;
+}
+
+/* ---------- Painéis ---------- */
+.panel {
+  position: relative;
+  background: rgba(15, 26, 36, 0.88);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.start-screen,
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom));
+  background: radial-gradient(ellipse at center, rgba(15, 26, 36, 0.35), rgba(15, 26, 36, 0.8));
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.start-panel {
+  width: min(460px, 100%);
+  padding: 32px 28px 28px;
+  text-align: left;
+  animation: rise 0.6s ease;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.start-panel h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(36px, 8vw, 48px);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.lead {
+  margin: 10px 0 18px;
+  color: rgba(244, 239, 230, 0.85);
+  font-size: 15px;
+}
+
+.notice {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  border-left: 3px solid #d0574f;
+  background: rgba(179, 38, 30, 0.14);
+  border-radius: 0 8px 8px 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.controls-list {
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 9px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: rgba(244, 239, 230, 0.88);
+}
+
+.controls-list li {
+  padding-left: 14px;
+  position: relative;
+}
+
+.controls-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.65em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 14px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--gold-2), var(--gold));
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 8px 24px rgba(201, 169, 110, 0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(201, 169, 110, 0.4);
+}
+
+.help-panel {
+  width: min(440px, 100%);
+  padding: 26px 24px 4px;
+}
+
+.help-panel h2 {
+  margin: 0 0 16px;
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.panel-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+}
+
+/* ---------- Rótulos da planta 3D ---------- */
+.room-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--glass-light);
+  color: var(--ink);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  font-family: var(--sans);
+}
+
+.room-label span {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.room-label small {
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: #5b5446;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 640px) {
+  .brand-name {
+    font-size: 21px;
+  }
+  .brand-sub {
+    font-size: 10px;
+    max-width: 46vw;
+  }
+  .segmented button {
+    padding: 8px 10px;
+  }
+  .segmented button span {
+    display: none;
+  }
+  .icon-btn {
+    width: 38px;
+    height: 38px;
+  }
+  .keys-hint {
+    display: none;
+  }
+  .room-label {
+    padding: 3px 7px;
+  }
+  .room-label span {
+    font-size: 13px;
+  }
+  .room-label small {
+    font-size: 9px;
+  }
+  .is-touch .hint-pill {
+    font-size: 12px;
+  }
+}
+
+@media (max-height: 480px) and (orientation: landscape) {
+  .topbar {
+    padding-top: calc(6px + var(--safe-top));
+  }
+  .brand-sub {
+    display: none;
+  }
+  .joystick-zone {
+    height: 190px;
+    padding-bottom: calc(16px + var(--safe-bottom));
+  }
+  .joystick-base {
+    width: 112px;
+    height: 112px;
+  }
+  .room-indicator,
+  .is-touch .room-indicator {
+    top: calc(58px + var(--safe-top));
+  }
+  .is-touch .provisional-banner {
+    top: calc(58px + var(--safe-top));
+    left: auto;
+    right: calc(16px + var(--safe-right));
+    transform: none;
+  }
+}
+
+/* iOS Safari não suporta Fullscreen API em elementos comuns. */
+@supports (-webkit-touch-callout: none) {
+  .hide-ios {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
