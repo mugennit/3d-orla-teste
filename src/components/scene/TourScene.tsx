@@ -1,4 +1,4 @@
-import { PerformanceMonitor, Preload } from '@react-three/drei';
+import { PerformanceMonitor, Preload, Stats } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { Suspense, useMemo, useState } from 'react';
 import * as THREE from 'three';
@@ -12,6 +12,9 @@ import { PlanView } from './PlanView';
 import type { Furniture } from '../../layout/types';
 
 export type ViewMode = 'walk' | 'plan';
+
+/** `?fps=1` mostra o medidor de FPS (para avaliar o desempenho em aparelhos reais). */
+const SHOW_FPS = new URLSearchParams(window.location.search).get('fps') === '1';
 
 interface Props {
   layout: ApartmentLayout;
@@ -47,6 +50,7 @@ export function TourScene({ layout, mode, active, isTouch, onLockChange, onEnter
       gl={{ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false }}
       camera={{ fov: 70, near: 0.05, far: 400, position: [0, 1.6, 0] }}
       onCreated={({ gl }) => {
+        (window as unknown as { __gl?: THREE.WebGLRenderer }).__gl = gl; // métricas (testes / ?fps=1)
         gl.toneMapping = THREE.ACESFilmicToneMapping;
         gl.toneMappingExposure = 1.05;
       }}
@@ -75,6 +79,7 @@ export function TourScene({ layout, mode, active, isTouch, onLockChange, onEnter
           <PlanView layout={layout} bounds={bounds} colliders={colliders} onEnterAt={onEnterAt} overlayOpacity={overlayOpacity} />
         )}
         <Preload all />
+        {SHOW_FPS && <Stats />}
       </Suspense>
     </Canvas>
   );
