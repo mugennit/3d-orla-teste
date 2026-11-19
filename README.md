@@ -7,6 +7,11 @@ empreendimento **Orla Guanabara**, Niterói/RJ.
 > ⚠️ **Status:** estrutura técnica e controles prontos. A cena exibida é uma
 > **cena de teste provisória** e não representa o imóvel. A geometria real será
 > construída a partir da planta oficial — ver [`docs/PLANTA-REAL.md`](docs/PLANTA-REAL.md).
+>
+> 🎯 **Meta visual:** fotorrealismo de apartamento decorado (PBR, modelos
+> detalhados, iluminação global pré-calculada) com bom desempenho em
+> smartphones — ver [`docs/FOTORREALISMO.md`](docs/FOTORREALISMO.md). Os
+> materiais procedurais atuais são provisórios e não atendem a esse requisito.
 
 ## Stack
 
@@ -60,5 +65,15 @@ src/
 
 ## Publicação (Vercel)
 
-Importe o repositório no Vercel — `vercel.json` já define framework Vite,
-`npm run build` e saída `dist/`. Nenhuma variável de ambiente é necessária.
+`vercel.json` já define framework Vite, `npm run build` e saída `dist/`.
+Nenhuma variável de ambiente é necessária.
+
+1. Em [vercel.com/new](https://vercel.com/new), importe `mugennit/3d-orla-teste`
+   (conceda acesso ao repositório pelo GitHub, se solicitado).
+2. Confirme: *Framework Preset* **Vite**, *Root Directory* `./` — os demais
+   campos já vêm do `vercel.json`. Clique em **Deploy**.
+3. Cada push gera um *Preview Deployment* com URL própria; a branch de
+   produção (`main`) publica na URL principal.
+
+Para testar no celular, abra a URL do deploy (HTTPS é necessário para tela
+cheia e captura de toque em alguns navegadores). `?q=low` força o modo leve.
