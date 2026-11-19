@@ -1307,4 +1307,5 @@ def main():
     print('[build] concluído', meta, flush=True)
 
 
-main()
+if __name__ == '__main__':
+    main()
