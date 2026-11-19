@@ -39,7 +39,8 @@ export function Lighting({ layout, bounds, quality }: Props) {
 
   return (
     <>
-      <Sky sunPosition={sun} turbidity={6} rayleigh={1.2} mieCoefficient={0.004} mieDirectionalG={0.85} />
+      <color attach="background" args={["#dfe6ea"]} />
+      <Sky distance={300} sunPosition={sun} turbidity={6} rayleigh={1.2} mieCoefficient={0.004} mieDirectionalG={0.85} />
       <hemisphereLight args={['#dfe9f3', '#b8a58c', 0.9]} />
       <ambientLight intensity={0.25} />
       <directionalLight

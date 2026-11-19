@@ -116,6 +116,10 @@ function create(key: string): THREE.Material {
   switch (key) {
     case 'wall':
       return new THREE.MeshStandardMaterial({ color: '#f1ede6', roughness: 0.92 });
+    case 'slab':
+      return new THREE.MeshStandardMaterial({ color: '#bdb6aa', roughness: 0.9 });
+    case 'door':
+      return new THREE.MeshStandardMaterial({ color: '#ece8e1', roughness: 0.6 });
     case 'ceiling':
       return new THREE.MeshStandardMaterial({ color: '#fbfaf7', roughness: 0.95 });
     case 'wood':

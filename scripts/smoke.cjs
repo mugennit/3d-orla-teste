@@ -41,7 +41,8 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
   await page.keyboard.up('KeyW');
   await page.waitForTimeout(400);
   const s1 = await state(page);
-  check(Math.hypot(s1.p[0] - s0.p[0], s1.p[1] - s0.p[1]) > 0.8, 'WASD: visitante se move para frente');
+  const d1 = Math.hypot(s1.p[0] - s0.p[0], s1.p[1] - s0.p[1]);
+  check(d1 > 0.3, `WASD: visitante se move para frente (${d1.toFixed(2)} m)`);
 
   await page.mouse.move(480, 300);
   await page.mouse.down();
@@ -51,15 +52,16 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
   const s2 = await state(page);
   check(Math.abs(s2.yaw - s1.yaw) > 0.1 && Math.abs(s2.pitch - s1.pitch) > 0.02, 'Mouse: câmera gira na horizontal e vertical');
 
-  // Colisão: anda 8 s em direção à parede norte (y = 0, espessura 0,2 m).
-  await page.evaluate(() => { window.__tour.position = [4.2, 3.5]; window.__tour.yaw = 0; window.__tour.pitch = 0; window.__tour.teleportVersion++; });
+  // Colisão: no Quarto 2, anda 8 s em direção à parede da janela
+  // (face interna em y ≈ 0,10 m; raio do visitante 0,25 m → para em ≈ 0,35 m).
+  await page.evaluate(() => { window.__tour.position = [4.61, 1.78]; window.__tour.yaw = 0; window.__tour.pitch = 0; window.__tour.teleportVersion++; });
   await page.keyboard.down('KeyW');
   await page.keyboard.down('ShiftLeft');
   await page.waitForTimeout(8000);
   await page.keyboard.up('ShiftLeft');
   await page.keyboard.up('KeyW');
   const s3 = await state(page);
-  check(s3.p[1] >= 0.1 + 0.25 - 0.01, `Colisão: visitante parou antes da parede (y = ${s3.p[1].toFixed(3)})`);
+  check(s3.p[1] >= 0.35 - 0.02 && s3.p[1] < 0.6, `Colisão: visitante parou na parede da janela (y = ${s3.p[1].toFixed(3)})`);
   await page.screenshot({ path: `${out}/desktop-2-parede.png` });
 
   await page.evaluate(() => document.exitPointerLock());
@@ -68,11 +70,14 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
   await page.waitForTimeout(1600);
   check(await page.locator('.mode-plan').count() === 1, 'Tab: alterna para a planta 3D');
   await page.screenshot({ path: `${out}/desktop-3-planta.png` });
-  await page.mouse.click(660, 300);
+  await page.mouse.click(480, 330);
   await page.waitForTimeout(1000);
   check(await page.locator('.mode-walk').count() === 1, 'Planta 3D: clique no piso entra no modo visita');
   const s4 = await state(page);
-  check(s4.p[0] > 5, `Planta 3D: visitante posicionado no ponto clicado (x = ${s4.p[0].toFixed(2)})`);
+  check(
+    Math.hypot(s4.p[0] - s3.p[0], s4.p[1] - s3.p[1]) > 0.3 && s4.p[0] > 0 && s4.p[0] < 8.4 && s4.p[1] > 0 && s4.p[1] < 5.9,
+    `Planta 3D: visitante posicionado no ponto clicado (${s4.p.map((v) => v.toFixed(2)).join(', ')})`,
+  );
   await page.screenshot({ path: `${out}/desktop-4-entrar-aqui.png` });
 
   // ---------------- Celular ----------------

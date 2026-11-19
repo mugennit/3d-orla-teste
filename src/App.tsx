@@ -25,6 +25,7 @@ export default function App() {
   const [mode, setMode] = useState<ViewMode>('walk');
   const [locked, setLocked] = useState(false);
   const [help, setHelp] = useState(false);
+  const [overlay, setOverlay] = useState(0);
 
   const walking = started && mode === 'walk';
   useKeyboard(walking && !help);
@@ -72,12 +73,18 @@ export default function App() {
           isTouch={isTouch}
           onLockChange={setLocked}
           onEnterAt={enterAt}
+          overlayOpacity={mode === 'plan' ? overlay : 0}
         />
       </div>
 
       {layout.status === 'provisional' && (
         <div className="provisional-banner" role="status">
           Cena de teste provisória — não representa o imóvel
+        </div>
+      )}
+      {layout.status === 'draft' && (
+        <div className="provisional-banner is-draft" role="status">
+          Etapa 1 · geometria em conferência · medidas estimadas · visual provisório
         </div>
       )}
 
@@ -119,8 +126,30 @@ export default function App() {
         </>
       )}
 
-      {started && mode === 'plan' && (
+      {started && mode === 'plan' && overlay === 0 && (
         <div className="hint-pill">{isTouch ? 'Toque no piso' : 'Clique no piso'} para entrar naquele ponto · arraste para girar</div>
+      )}
+
+      {started && mode === 'plan' && layout.reference && (
+        <div className="compare-panel">
+          <button className={`compare-toggle${overlay > 0 ? ' is-on' : ''}`} onClick={() => setOverlay(overlay > 0 ? 0 : 0.6)}>
+            {overlay > 0 ? 'Ocultar planta original' : 'Comparar com a planta original'}
+          </button>
+          {overlay > 0 && (
+            <label className="compare-slider">
+              <span>Transparência</span>
+              <input
+                type="range"
+                min={0.05}
+                max={1}
+                step={0.05}
+                value={overlay}
+                onChange={(e) => setOverlay(Number(e.target.value))}
+                aria-label="Opacidade da planta original"
+              />
+            </label>
+          )}
+        </div>
       )}
 
       {!started && <StartScreen layout={layout} isTouch={isTouch} onStart={start} />}

@@ -1,4 +1,4 @@
-import { Html, OrbitControls } from '@react-three/drei';
+import { Html, OrbitControls, useTexture } from '@react-three/drei';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
@@ -16,12 +16,15 @@ interface Props {
   colliders: Collider[];
   /** Clique no piso: posiciona o visitante e volta ao modo visita. */
   onEnterAt: () => void;
+  /** Opacidade da planta original sobreposta; > 0 ativa a vista ortogonal de conferência. */
+  overlayOpacity?: number;
 }
 
 const TRANSITION = 0.9; // s
 
 /** Planta 3D vista de cima, com órbita, zoom, rótulos e "entrar aqui". */
-export function PlanView({ layout, bounds, colliders, onEnterAt }: Props) {
+export function PlanView({ layout, bounds, colliders, onEnterAt, overlayOpacity = 0 }: Props) {
+  const compare = overlayOpacity > 0;
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
   const orbit = useRef<OrbitControlsImpl>(null);
@@ -33,26 +36,38 @@ export function PlanView({ layout, bounds, colliders, onEnterAt }: Props) {
   );
   const extent = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
 
-  // Pose final: acima e levemente inclinada (planta "humanizada" em 3D).
+  // Pose final: acima e levemente inclinada (planta "humanizada" em 3D) ou,
+  // na conferência, exatamente de cima com FOV estreito (quase ortogonal),
+  // para que o topo das paredes coincida com a imagem da planta.
+  const fov = compare ? 12 : 45;
   const endPos = useMemo(() => {
     const aspect = size.width / size.height;
+    if (compare) {
+      const w = bounds.maxX - bounds.minX + 0.8;
+      const h = bounds.maxY - bounds.minY + 0.8;
+      const vfov = THREE.MathUtils.degToRad(fov);
+      const distH = h / 2 / Math.tan(vfov / 2);
+      const distW = w / 2 / (Math.tan(vfov / 2) * aspect);
+      const dist = Math.max(distH, distW) * 1.12 + layout.ceilingHeight;
+      return new THREE.Vector3(center.x, dist, center.z + 0.0001);
+    }
     const dist = extent * (aspect < 1 ? 1.9 / aspect ** 0.5 : 1.35);
     return new THREE.Vector3(center.x, dist, center.z + dist * 0.38);
-  }, [center, extent, size]);
+  }, [center, extent, size, compare, bounds, fov, layout.ceilingHeight]);
 
   const anim = useRef({ t: 0, fromPos: new THREE.Vector3(), fromQuat: new THREE.Quaternion(), toQuat: new THREE.Quaternion() });
 
   useEffect(() => {
-    camera.fov = 45;
+    camera.fov = fov;
     camera.updateProjectionMatrix();
     const a = anim.current;
     a.t = 0;
     a.fromPos.copy(camera.position);
     a.fromQuat.copy(camera.quaternion);
-    const m = new THREE.Matrix4().lookAt(endPos, center, new THREE.Vector3(0, 1, 0));
+    const m = new THREE.Matrix4().lookAt(endPos, center, compare ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0));
     a.toQuat.setFromRotationMatrix(m);
     setReady(false);
-  }, [camera, endPos, center]);
+  }, [camera, endPos, center, fov, compare]);
 
   useFrame((_, dt) => {
     const a = anim.current;
@@ -87,8 +102,9 @@ export function PlanView({ layout, bounds, colliders, onEnterAt }: Props) {
         target={center}
         enableDamping
         dampingFactor={0.08}
-        minDistance={extent * 0.5}
-        maxDistance={extent * 3}
+        enableRotate={!compare}
+        minDistance={compare ? 4 : extent * 0.5}
+        maxDistance={compare ? endPos.y * 1.5 : extent * 3}
         maxPolarAngle={Math.PI * 0.42}
         screenSpacePanning={false}
       />
@@ -105,7 +121,12 @@ export function PlanView({ layout, bounds, colliders, onEnterAt }: Props) {
 
       <PlayerMarker />
 
+      {compare && layout.reference && (
+        <PlanOverlay layout={layout} opacity={overlayOpacity} />
+      )}
+
       {ready &&
+        !compare &&
         layout.rooms.map((r) => {
           const [x, y] = polygonCentroid(r.polygon);
           const area = r.declaredArea ?? polygonArea(r.polygon);
@@ -144,5 +165,22 @@ function PlayerMarker() {
         <meshBasicMaterial color="#0f1a24" />
       </mesh>
     </group>
+  );
+}
+
+/** Imagem da planta original alinhada pela calibração, acima do topo das paredes. */
+function PlanOverlay({ layout, opacity }: { layout: ApartmentLayout; opacity: number }) {
+  const ref = layout.reference!;
+  const tex = useTexture(ref.url);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const w = ref.sizePx[0] / ref.pxPerMeter;
+  const h = ref.sizePx[1] / ref.pxPerMeter;
+  const cx = (ref.sizePx[0] / 2 - ref.originPx[0]) / ref.pxPerMeter;
+  const cz = (ref.sizePx[1] / 2 - ref.originPx[1]) / ref.pxPerMeter;
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, layout.ceilingHeight + 0.02, cz]} renderOrder={10}>
+      <planeGeometry args={[w, h]} />
+      <meshBasicMaterial map={tex} transparent opacity={opacity} depthTest={false} depthWrite={false} toneMapped={false} />
+    </mesh>
   );
 }

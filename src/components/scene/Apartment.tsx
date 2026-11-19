@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { wallLength, wallPieces } from '../../engine/geometry';
-import type { ApartmentLayout, Opening, Room, Wall } from '../../layout/types';
+import { doorLeaves, wallLength, wallPieces } from '../../engine/geometry';
+import type { ApartmentLayout, Opening, Room, Vec2, Wall } from '../../layout/types';
 import { Furniture } from './Furniture';
 import { getMaterial } from './materials';
 
@@ -22,12 +22,15 @@ export function Apartment({ layout, showCeiling }: Props) {
           key={r.id}
           room={r}
           ceilingHeight={layout.ceilingHeight}
-          showCeiling={showCeiling && !r.outdoor}
+          showCeiling={showCeiling && r.ceiling !== false && !layout.envelope}
         />
       ))}
       {layout.furniture.map((f) => (
         <Furniture key={f.id} item={f} />
       ))}
+      {layout.envelope && (
+        <Slabs envelope={layout.envelope} ceilingHeight={layout.ceilingHeight} showCeiling={showCeiling} />
+      )}
     </group>
   );
 }
@@ -52,6 +55,18 @@ function WallMesh({ wall, defaultHeight }: { wall: Wall; defaultHeight: number }
       {isGlass && <RailingCap wall={wall} height={wall.height ?? 1.1} />}
       {(wall.openings ?? []).map((o) => (
         <OpeningFill key={o.id} wall={wall} opening={o} />
+      ))}
+      {doorLeaves(wall).map((d) => (
+        <mesh
+          key={d.key}
+          position={[d.center[0], d.height / 2, d.center[1]]}
+          rotation={[0, -d.angle, 0]}
+          material={getMaterial('door')}
+          castShadow
+          receiveShadow
+        >
+          <boxGeometry args={[d.width, d.height, d.thickness]} />
+        </mesh>
       ))}
     </group>
   );
@@ -140,6 +155,31 @@ function RoomSurfaces({
       {/* Piso: shape (x, -y) girado -90° em X → normal para cima, z = y da planta. */}
       <mesh geometry={floorGeo} rotation={[-Math.PI / 2, 0, 0]} material={getMaterial(room.floorMaterial)} receiveShadow />
       {/* Teto: shape (x, y) girado +90° em X → normal para baixo. */}
+      <mesh
+        geometry={ceilGeo}
+        rotation={[Math.PI / 2, 0, 0]}
+        position={[0, ceilingHeight, 0]}
+        material={getMaterial('ceiling')}
+        visible={showCeiling}
+        castShadow
+        receiveShadow
+      />
+    </group>
+  );
+}
+
+/**
+ * Lajes contínuas sob e sobre toda a unidade: evitam frestas entre os
+ * polígonos dos ambientes e as faces das paredes (o piso de cada ambiente
+ * fica 2 mm acima da laje inferior).
+ */
+function Slabs({ envelope, ceilingHeight, showCeiling }: { envelope: Vec2[]; ceilingHeight: number; showCeiling: boolean }) {
+  const pseudo: Room = { id: 'slab', name: 'slab', polygon: envelope, floorMaterial: 'slab' };
+  const floorGeo = useMemo(() => new THREE.ShapeGeometry(shapeFromPolygon(pseudo, true)), [envelope]); // eslint-disable-line react-hooks/exhaustive-deps
+  const ceilGeo = useMemo(() => new THREE.ShapeGeometry(shapeFromPolygon(pseudo, false)), [envelope]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <group>
+      <mesh geometry={floorGeo} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.002, 0]} material={getMaterial('slab')} receiveShadow />
       <mesh
         geometry={ceilGeo}
         rotation={[Math.PI / 2, 0, 0]}

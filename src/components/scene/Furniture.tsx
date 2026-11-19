@@ -121,6 +121,8 @@ function Shape({ kind, w, h, d, material }: ShapeProps) {
       );
     case 'placeholder-box':
       return <Box pos={[0, h / 2, 0]} size={[w, h, d]} mat="test" />;
+    case 'shaft':
+      return <Box pos={[0, h / 2, 0]} size={[w, h, d]} mat="wall" />;
     case 'cabinet':
     case 'counter':
     default:

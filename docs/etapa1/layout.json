@@ -1,0 +1,639 @@
+{
+ "pxPerMeter": 79.88137284468431,
+ "pieces": [
+  {
+   "id": "ext-oeste",
+   "structure": "concrete",
+   "center": [
+    26,
+    234
+   ],
+   "length": 392,
+   "thickness": 8,
+   "angle": 1.5707963267948966,
+   "top": 2.5
+  },
+  {
+   "id": "ext-oeste",
+   "structure": "concrete",
+   "center": [
+    26,
+    502
+   ],
+   "length": 7.999999999999996,
+   "thickness": 8,
+   "angle": 1.5707963267948966,
+   "top": 2.5
+  },
+  {
+   "id": "ext-sul",
+   "structure": "concrete",
+   "center": [
+    357.50000000000006,
+    502.5
+   ],
+   "length": 671.0000000000001,
+   "thickness": 7,
+   "angle": 0,
+   "top": 2.5
+  },
+  {
+   "id": "ext-leste",
+   "structure": "concrete",
+   "center": [
+    688.5,
+    331
+   ],
+   "length": 354,
+   "thickness": 9,
+   "angle": 1.5707963267948966,
+   "top": 2.5
+  },
+  {
+   "id": "ext-norte-suite",
+   "structure": "concrete",
+   "center": [
+    504.99999999999994,
+    158
+   ],
+   "length": 46,
+   "thickness": 8,
+   "angle": 0,
+   "top": 2.5
+  },
+  {
+   "id": "ext-norte-suite",
+   "structure": "concrete",
+   "center": [
+    582.5,
+    158
+   ],
+   "length": 109,
+   "thickness": 8,
+   "angle": 0,
+   "top": 1
+  },
+  {
+   "id": "ext-norte-suite",
+   "structure": "concrete",
+   "center": [
+    665,
+    158
+   ],
+   "length": 56.00000000000008,
+   "thickness": 8,
+   "angle": 0,
+   "top": 2.5
+  },
+  {
+   "id": "ext-norte-q2",
+   "structure": "concrete",
+   "center": [
+    309.5,
+    42
+   ],
+   "length": 51,
+   "thickness": 8,
+   "angle": 0,
+   "top": 2.5
+  },
+  {
+   "id": "ext-norte-q2",
+   "structure": "concrete",
+   "center": [
+    390.99999999999994,
+    42
+   ],
+   "length": 112.00000000000001,
+   "thickness": 8,
+   "angle": 0,
+   "top": 1
+  },
+  {
+   "id": "ext-norte-q2",
+   "structure": "concrete",
+   "center": [
+    466.5,
+    42
+   ],
+   "length": 38.999999999999964,
+   "thickness": 8,
+   "angle": 0,
+   "top": 2.5
+  },
+  {
+   "id": "varanda-guarda-corpo",
+   "structure": "railing",
+   "center": [
+    185,
+    39.5
+   ],
+   "length": 198,
+   "thickness": 3.1952549137873723,
+   "angle": 0,
+   "top": 1.1
+  },
+  {
+   "id": "varanda-parapeito",
+   "structure": "parapet",
+   "center": [
+    54,
+    39.5
+   ],
+   "length": 64,
+   "thickness": 5,
+   "angle": 0,
+   "top": 1.1
+  },
+  {
+   "id": "varanda-porta-vidro",
+   "structure": "concrete",
+   "center": [
+    147.5,
+    117.5
+   ],
+   "length": 5,
+   "thickness": 7,
+   "angle": 0,
+   "top": 2.5
+  },
+  {
+   "id": "varanda-porta-vidro",
+   "structure": "concrete",
+   "center": [
+    297,
+    117.5
+   ],
+   "length": 5.9999999999999964,
+   "thickness": 7,
+   "angle": 0,
+   "top": 2.5
+  },
+  {
+   "id": "sala-q2",
+   "structure": "concrete",
+   "center": [
+    300,
+    119
+   ],
+   "length": 162,
+   "thickness": 8,
+   "angle": 1.5707963267948966,
+   "top": 2.5
+  },
+  {
+   "id": "sala-q2-drywall",
+   "structure": "drywall",
+   "center": [
+    298,
+    262
+   ],
+   "length": 124,
+   "thickness": 6.3905098275747445,
+   "angle": 1.5707963267948966,
+   "top": 2.5
+  },
+  {
+   "id": "q2-suite",
+   "structure": "concrete",
+   "center": [
+    482,
+    119
+   ],
+   "length": 162,
+   "thickness": 8,
+   "angle": 1.5707963267948966,
+   "top": 2.5
+  },
+  {
+   "id": "q2-suite-drywall",
+   "structure": "drywall",
+   "center": [
+    482.5,
+    262
+   ],
+   "length": 124,
+   "thickness": 6.3905098275747445,
+   "angle": 1.5707963267948966,
+   "top": 2.5
+  },
+  {
+   "id": "q2-sul-drywall",
+   "structure": "drywall",
+   "center": [
+    300.49999999999994,
+    321.5
+   ],
+   "length": 11.000000000000002,
+   "thickness": 6.3905098275747445,
+   "angle": 0,
+   "top": 2.5
+  },
+  {
+   "id": "q2-sul-drywall",
+   "structure": "drywall",
+   "center": [
+    427.99999999999994,
+    321.5
+   ],
+   "length": 115.99999999999997,
+   "thickness": 6.3905098275747445,
+   "angle": 0,
+   "top": 2.5
+  },
+  {
+   "id": "circulacao-suite",
+   "structure": "drywall",
+   "center": [
+    392,
+    325.5
+   ],
+   "length": 3,
+   "thickness": 6.3905098275747445,
+   "angle": 1.5707963267948966,
+   "top": 2.5
+  },
+  {
+   "id": "circulacao-suite",
+   "structure": "drywall",
+   "center": [
+    392,
+    399.25
+   ],
+   "length": 4.500000000000024,
+   "thickness": 6.3905098275747445,
+   "angle": 1.5707963267948966,
+   "top": 2.5
+  },
+  {
+   "id": "banhos-norte-drywall",
+   "structure": "drywall",
+   "center": [
+    308.5,
+    401.5
+   ],
+   "length": 9,
+   "thickness": 6.3905098275747445,
+   "angle": 0,
+   "top": 2.5
+  },
+  {
+   "id": "banhos-norte-drywall",
+   "structure": "drywall",
+   "center": [
+    438,
+    401.5
+   ],
+   "length": 129.99999999999997,
+   "thickness": 6.3905098275747445,
+   "angle": 0,
+   "top": 2.5
+  },
+  {
+   "id": "banhos-norte-drywall",
+   "structure": "drywall",
+   "center": [
+    625.7500000000001,
+    401.5
+   ],
+   "length": 125.50000000000003,
+   "thickness": 6.3905098275747445,
+   "angle": 0,
+   "top": 2.5
+  },
+  {
+   "id": "banho-social-sala",
+   "structure": "concrete",
+   "center": [
+    300,
+    452.00000000000006
+   ],
+   "length": 100.99999999999997,
+   "thickness": 8,
+   "angle": 1.5707963267948966,
+   "top": 2.5
+  },
+  {
+   "id": "banhos-divisa-drywall",
+   "structure": "drywall",
+   "center": [
+    495,
+    452.00000000000006
+   ],
+   "length": 100.99999999999997,
+   "thickness": 7.988137284468431,
+   "angle": 1.5707963267948966,
+   "top": 2.5
+  },
+  {
+   "id": "servico-cozinha-drywall",
+   "structure": "drywall",
+   "center": [
+    85.5,
+    168
+   ],
+   "length": 119.00000000000001,
+   "thickness": 6.3905098275747445,
+   "angle": 0,
+   "top": 2.5
+  },
+  {
+   "id": "servico-sala-drywall",
+   "structure": "drywall",
+   "center": [
+    145,
+    184
+   ],
+   "length": 136,
+   "thickness": 6.3905098275747445,
+   "angle": 1.5707963267948966,
+   "top": 2.5
+  }
+ ],
+ "leaves": [
+  {
+   "hinge": [
+    30,
+    494.8047450862126
+   ],
+   "center": [
+    60.80474508621263,
+    493.4068210614306
+   ],
+   "width": 61.60949017242526
+  },
+  {
+   "hinge": [
+    309.1952549137874,
+    318.3047450862126
+   ],
+   "center": [
+    310.59317893856934,
+    289.5
+   ],
+   "width": 57.60949017242526
+  },
+  {
+   "hinge": [
+    395.1952549137874,
+    393.8047450862126
+   ],
+   "center": [
+    427,
+    392.40682106143066
+   ],
+   "width": 63.60949017242526
+  },
+  {
+   "hinge": [
+    316.1952549137874,
+    404.6952549137874
+   ],
+   "center": [
+    317.59317893856934,
+    431.50000000000006
+   ],
+   "width": 53.60949017242526
+  },
+  {
+   "hinge": [
+    506.1952549137874,
+    404.6952549137874
+   ],
+   "center": [
+    507.59317893856934,
+    431.50000000000006
+   ],
+   "width": 53.60949017242526
+  }
+ ],
+ "shafts": [
+  {
+   "id": "shaft-banho-social",
+   "center": [
+    455,
+    494
+   ],
+   "size": [
+    74,
+    16
+   ]
+  },
+  {
+   "id": "shaft-banho-suite",
+   "center": [
+    647,
+    494
+   ],
+   "size": [
+    74,
+    16
+   ]
+  },
+  {
+   "id": "shaft-servico",
+   "center": [
+    42,
+    137.5
+   ],
+   "size": [
+    20,
+    55
+   ]
+  }
+ ],
+ "rooms": [
+  {
+   "name": "Varanda / Serviço",
+   "polygon": [
+    [
+     30,
+     43.5
+    ],
+    [
+     296,
+     43.5
+    ],
+    [
+     296,
+     114
+    ],
+    [
+     147,
+     114
+    ],
+    [
+     147,
+     166
+    ],
+    [
+     30,
+     166
+    ]
+   ]
+  },
+  {
+   "name": "Cozinha",
+   "polygon": [
+    [
+     30,
+     171
+    ],
+    [
+     143,
+     171
+    ],
+    [
+     143,
+     383
+    ],
+    [
+     30,
+     383
+    ]
+   ]
+  },
+  {
+   "name": "Estar / Jantar",
+   "polygon": [
+    [
+     147,
+     120.99999999999999
+    ],
+    [
+     296,
+     120.99999999999999
+    ],
+    [
+     296,
+     498
+    ],
+    [
+     30,
+     498
+    ],
+    [
+     30,
+     383
+    ],
+    [
+     147,
+     383
+    ]
+   ]
+  },
+  {
+   "name": "Circulação",
+   "polygon": [
+    [
+     302,
+     325
+    ],
+    [
+     389,
+     325
+    ],
+    [
+     389,
+     398
+    ],
+    [
+     302,
+     398
+    ]
+   ]
+  },
+  {
+   "name": "Quarto 2",
+   "polygon": [
+    [
+     304,
+     46
+    ],
+    [
+     478,
+     46
+    ],
+    [
+     478,
+     318
+    ],
+    [
+     302,
+     318
+    ]
+   ]
+  },
+  {
+   "name": "Suíte",
+   "polygon": [
+    [
+     486,
+     162
+    ],
+    [
+     684,
+     162
+    ],
+    [
+     684,
+     398
+    ],
+    [
+     394.99999999999994,
+     398
+    ],
+    [
+     394.99999999999994,
+     325
+    ],
+    [
+     486,
+     325
+    ]
+   ]
+  },
+  {
+   "name": "Banho social",
+   "polygon": [
+    [
+     304,
+     405
+    ],
+    [
+     491,
+     405
+    ],
+    [
+     491,
+     499
+    ],
+    [
+     304,
+     499
+    ]
+   ]
+  },
+  {
+   "name": "Banho suíte",
+   "polygon": [
+    [
+     500,
+     405
+    ],
+    [
+     684,
+     405
+    ],
+    [
+     684,
+     499
+    ],
+    [
+     500,
+     499
+    ]
+   ]
+  }
+ ]
+}

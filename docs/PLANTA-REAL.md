@@ -1,8 +1,9 @@
-# Construção do apartamento real — Orla Guanabara (2 quartos, 40,54 m²)
+# Construção do apartamento real — Orla Guanabara (2 quartos com suíte, 45,66 m²)
 
-A cena atual (`src/layout/provisional/testScene.ts`) é **provisória** e não
-representa o imóvel. A geometria definitiva será digitalizada a partir da planta
-humanizada do book oficial, sem inventar medidas.
+**Atualização (Etapa 1):** a geometria foi digitalizada da p. 17 do book em
+`src/layout/orla-guanabara/apto-45m2.ts`, com medidas estimadas (planta sem cotas).
+Conferência e pendências em [`etapa1/CONFERENCIA.md`](etapa1/CONFERENCIA.md).
+Os insumos abaixo continuam necessários para eliminar as estimativas.
 
 ## O que precisamos receber
 

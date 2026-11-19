@@ -76,6 +76,7 @@ export const provisionalTestScene: ApartmentLayout = {
       polygon: [[0, 6], [5, 6], [5, 7.6], [0, 7.6]],
       floorMaterial: 'deck',
       outdoor: true,
+      ceiling: false,
     },
   ],
   furniture: [

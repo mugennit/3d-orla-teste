@@ -139,8 +139,61 @@ export function furnitureCollider(f: Furniture): BoxCollider | null {
   };
 }
 
+/** Folha de porta de giro aberta a 90° (posição na planta). */
+export interface DoorLeaf {
+  key: string;
+  /** Ponto da dobradiça (m). */
+  hinge: Vec2;
+  center: Vec2;
+  /** Largura da folha (m). */
+  width: number;
+  thickness: number;
+  height: number;
+  /** Ângulo do plano da folha (rad, no plano XZ, mesma convenção de WallPiece). */
+  angle: number;
+}
+
+export const DOOR_FRAME = 0.04;
+export const DOOR_LEAF_THICKNESS = 0.035;
+
+export function doorLeaves(w: Wall): DoorLeaf[] {
+  const len = wallLength(w);
+  if (len <= 0) return [];
+  const ux = (w.to[0] - w.from[0]) / len;
+  const uy = (w.to[1] - w.from[1]) / len;
+  const nx = -uy;
+  const ny = ux;
+  const out: DoorLeaf[] = [];
+  for (const o of w.openings ?? []) {
+    if (o.kind !== 'door' || !o.hinge || !o.swing) continue;
+    const leafW = o.width - DOOR_FRAME * 2;
+    const t = o.hinge === 'start' ? o.offset + DOOR_FRAME : o.offset + o.width - DOOR_FRAME;
+    const inward = o.hinge === 'start' ? 1 : -1; // direção, ao longo da parede, para dentro do vão
+    const s = o.swing;
+    const face = w.thickness / 2;
+    const hx = w.from[0] + ux * t + nx * s * face;
+    const hy = w.from[1] + uy * t + ny * s * face;
+    const off = DOOR_LEAF_THICKNESS / 2;
+    out.push({
+      key: `${w.id}:${o.id}:leaf`,
+      hinge: [hx, hy],
+      center: [hx + nx * s * (leafW / 2) + ux * inward * off, hy + ny * s * (leafW / 2) + uy * inward * off],
+      width: leafW,
+      thickness: DOOR_LEAF_THICKNESS,
+      height: o.head - 0.01,
+      angle: Math.atan2(ny * s, nx * s),
+    });
+  }
+  return out;
+}
+
 export function buildColliders(layout: ApartmentLayout): Collider[] {
   const list: Collider[] = layout.walls.flatMap(wallColliders);
+  for (const w of layout.walls) {
+    for (const d of doorLeaves(w)) {
+      list.push({ type: 'box', center: d.center, halfSize: [d.width / 2, d.thickness / 2], angle: d.angle });
+    }
+  }
   for (const f of layout.furniture) {
     const c = furnitureCollider(f);
     if (c) list.push(c);

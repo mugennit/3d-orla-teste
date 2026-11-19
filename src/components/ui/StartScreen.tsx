@@ -20,6 +20,12 @@ export function StartScreen({ layout, isTouch, onStart }: Props) {
             Cena técnica de teste. A geometria do apartamento será construída a partir da planta oficial do book.
           </p>
         )}
+        {layout.status === 'draft' && (
+          <p className="notice">
+            Etapa 1 — geometria em conferência com a planta do book. Medidas estimadas (planta sem cotas) e
+            acabamentos ainda provisórios: este não é o visual final.
+          </p>
+        )}
         <ControlsList isTouch={isTouch} />
         <button className="btn-primary" onClick={onStart} autoFocus>
           Iniciar visita

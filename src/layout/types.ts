@@ -29,8 +29,27 @@ export type LayoutStatus =
 
 export type OpeningKind = 'door' | 'window' | 'passage' | 'sliding-door';
 
+/**
+ * Origem de uma medida.
+ *  - `confirmed`: lida diretamente de documento oficial (cota, quadro de áreas).
+ *  - `measured`: medida sobre a imagem da planta com escala calibrada
+ *    (incerteza típica de ±5–10 cm) — NÃO é informação oficial.
+ *  - `assumed`: valor técnico típico adotado por falta de informação
+ *    (ex.: pé-direito, peitoris) — NÃO é informação oficial.
+ */
+export type Provenance = 'confirmed' | 'measured' | 'assumed';
+
+/** Rastreabilidade: de onde veio a medida e o que falta conferir. */
+export interface Traceable {
+  provenance?: Provenance;
+  /** Observação de conferência (dúvida, interpretação, pendência). */
+  note?: string;
+}
+
+export type WallStructure = 'concrete' | 'drywall' | 'parapet' | 'railing';
+
 /** Vão (porta, janela, passagem) inserido ao longo de uma parede. */
-export interface Opening {
+export interface Opening extends Traceable {
   id: string;
   kind: OpeningKind;
   /** Distância (m) do ponto inicial da parede (`from`) até o início do vão. */
@@ -41,10 +60,17 @@ export interface Opening {
   sill: number;
   /** Altura da verga — topo do vão (m). */
   head: number;
+  /** Portas de giro: lado da dobradiça ao longo da parede. */
+  hinge?: 'start' | 'end';
+  /**
+   * Portas de giro: lado para o qual a folha abre, como sinal da normal
+   * n = (−dy, dx) da parede (d = to − from, coordenadas da planta).
+   */
+  swing?: 1 | -1;
 }
 
 /** Parede reta definida pelo seu eixo central. */
-export interface Wall {
+export interface Wall extends Traceable {
   id: string;
   from: Vec2;
   to: Vec2;
@@ -55,10 +81,12 @@ export interface Wall {
   openings?: Opening[];
   /** Chave do material (ver `materials.ts`). */
   material?: string;
+  /** Sistema construtivo indicado na planta. */
+  structure?: WallStructure;
 }
 
 /** Ambiente (cômodo) — define piso, teto e rótulo na planta 3D. */
-export interface Room {
+export interface Room extends Traceable {
   id: string;
   name: string;
   /** Polígono do piso (sentido indiferente). */
@@ -66,8 +94,10 @@ export interface Room {
   floorMaterial: string;
   /** Área declarada no book (m²), para conferência. */
   declaredArea?: number;
-  /** Ambiente externo (varanda): sem teto interno. */
+  /** Ambiente externo (varanda). */
   outdoor?: boolean;
+  /** Possui laje/forro acima. Padrão: true. */
+  ceiling?: boolean;
 }
 
 export type FurnitureKind =
@@ -79,10 +109,11 @@ export type FurnitureKind =
   | 'cabinet'
   | 'counter'
   | 'plant'
-  | 'rug';
+  | 'rug'
+  | 'shaft';
 
 /** Peça de mobiliário. */
-export interface Furniture {
+export interface Furniture extends Traceable {
   id: string;
   kind: FurnitureKind;
   /** Centro da peça na planta (m). */
@@ -119,4 +150,26 @@ export interface ApartmentLayout {
   spawn: SpawnPoint;
   /** Direção do norte na planta (graus) — usada para posicionar o sol. */
   northAngle?: number;
+  /** Proveniência do pé-direito. */
+  ceilingHeightProvenance?: Provenance;
+  /** Contorno externo da unidade (para conferência da área privativa). */
+  envelope?: Vec2[];
+  /** Calibração da imagem de referência (para sobrepor a planta original). */
+  reference?: PlanReference;
+}
+
+/**
+ * Imagem da planta usada como referência. Coordenadas da planta (m) e pixels
+ * se relacionam por: x_m = (x_px - originPx[0]) / pxPerMeter (idem para y).
+ */
+export interface PlanReference {
+  /** Caminho público da imagem (servida a partir de /public). */
+  url: string;
+  /** Tamanho da imagem em pixels. */
+  sizePx: Vec2;
+  /** Pixel (na imagem) correspondente à origem (0, 0) da planta. */
+  originPx: Vec2;
+  pxPerMeter: number;
+  /** Como a escala foi obtida. */
+  calibration: string;
 }

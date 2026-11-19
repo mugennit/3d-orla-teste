@@ -1,12 +1,13 @@
 # Tour Virtual 3D — Orla Guanabara
 
 Plataforma de tours virtuais 3D para apresentações de lançamentos imobiliários.
-Primeiro projeto: apartamento de 2 quartos com varanda (40,54 m²) do
+Primeiro projeto: apartamento de 2 quartos com suíte e varanda (45,66 m²) do
 empreendimento **Orla Guanabara**, Niterói/RJ.
 
-> ⚠️ **Status:** estrutura técnica e controles prontos. A cena exibida é uma
-> **cena de teste provisória** e não representa o imóvel. A geometria real será
-> construída a partir da planta oficial — ver [`docs/PLANTA-REAL.md`](docs/PLANTA-REAL.md).
+> ⚠️ **Status — Etapa 1:** geometria do apartamento construída a partir da planta
+> da p. 17 do book (sem cotas — **medidas estimadas**, identificadas no código) e
+> **em conferência**: ver [`docs/etapa1/CONFERENCIA.md`](docs/etapa1/CONFERENCIA.md).
+> O visual atual é provisório; o fotorrealismo é a próxima etapa.
 >
 > 🎯 **Meta visual:** fotorrealismo de apartamento decorado (PBR, modelos
 > detalhados, iluminação global pré-calculada) com bom desempenho em
@@ -26,6 +27,12 @@ npm run dev        # servidor local (acessível na rede para testar no celular)
 npm run check      # typecheck + lint + testes + build
 npm run build      # gera dist/
 npm run preview    # serve o build
+```
+
+Relatório de conferência da planta (Etapa 1):
+
+```bash
+npx vite-node scripts/plan-report.ts && python3 scripts/annotate-plan.py
 ```
 
 Teste de ponta a ponta (desktop + celular emulado, requer Playwright/Chromium):
@@ -52,12 +59,14 @@ Parâmetros de sensibilidade, velocidade, altura dos olhos, FOV etc. ficam em
 ```
 src/
   layout/            dados da unidade (fonte única da geometria)
-    types.ts           modelo: paredes, vãos, ambientes, móveis
-    provisional/       cena de teste PROVISÓRIA
+    types.ts           modelo: paredes, vãos, ambientes, móveis, proveniência
+    orla-guanabara/    apto 45,66 m² (coordenadas em px da planta + calibração)
+    provisional/       cena de teste técnica (não usada no tour)
     validate.ts        conferência automática do layout
   engine/            lógica pura, testada (Vitest)
     geometry.ts        paredes → trechos 3D e colisores; áreas
     collision.ts       colisão círculo × paredes/móveis com deslizamento
+    planEvidence.ts    conferência pixel a pixel do modelo contra a planta
   input/             teclado, estado do visitante, detecção de toque
   components/scene/  Three.js: arquitetura, móveis, luz, câmera 1ª pessoa, planta 3D
   components/ui/     joystick, área de olhar, telas e painéis

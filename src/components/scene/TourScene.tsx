@@ -19,9 +19,11 @@ interface Props {
   isTouch: boolean;
   onLockChange: (locked: boolean) => void;
   onEnterAt: () => void;
+  /** Opacidade da planta original sobreposta (0 = oculta). */
+  overlayOpacity?: number;
 }
 
-export function TourScene({ layout, mode, active, isTouch, onLockChange, onEnterAt }: Props) {
+export function TourScene({ layout, mode, active, isTouch, onLockChange, onEnterAt, overlayOpacity = 0 }: Props) {
   const colliders = useMemo(() => buildColliders(layout), [layout]);
   const bounds = useMemo(() => layoutBounds(layout), [layout]);
   // Qualidade: `?q=low` força o modo leve; o PerformanceMonitor também
@@ -54,7 +56,7 @@ export function TourScene({ layout, mode, active, isTouch, onLockChange, onEnter
             onLockChange={onLockChange}
           />
         ) : (
-          <PlanView layout={layout} bounds={bounds} colliders={colliders} onEnterAt={onEnterAt} />
+          <PlanView layout={layout} bounds={bounds} colliders={colliders} onEnterAt={onEnterAt} overlayOpacity={overlayOpacity} />
         )}
         <Preload all />
       </Suspense>
