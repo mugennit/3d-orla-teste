@@ -13,6 +13,17 @@ import { headingToYaw, playerState } from './input/playerState';
 import { useIsTouchDevice } from './input/useDevice';
 import { useKeyboard } from './input/useKeyboard';
 import { activeLayout } from './layout';
+import { orlaPhotoScene } from './layout/orla-guanabara/cena';
+import { LoadingOverlay } from './components/ui/LoadingOverlay';
+
+/**
+ * Cena fotorrealista (Etapa 2). Enquanto os arquivos otimizados não são
+ * publicados, fica desativada por padrão; `?cena=foto` força a ativação e
+ * `?cena=geometria` força a geometria provisória da Etapa 1.
+ */
+const PHOTO_READY = false;
+const cenaParam = new URLSearchParams(window.location.search).get('cena');
+const PHOTO = cenaParam === 'foto' || (PHOTO_READY && cenaParam !== 'geometria') ? orlaPhotoScene : undefined;
 
 // Posição inicial a partir do layout.
 playerState.position = activeLayout.spawn.position;
@@ -74,6 +85,7 @@ export default function App() {
           onLockChange={setLocked}
           onEnterAt={enterAt}
           overlayOpacity={mode === 'plan' ? overlay : 0}
+          photo={PHOTO}
         />
       </div>
 
@@ -84,9 +96,12 @@ export default function App() {
       )}
       {layout.status === 'draft' && (
         <div className="provisional-banner is-draft" role="status">
-          Etapa 1 · geometria em conferência · medidas estimadas · visual provisório
+          {PHOTO
+            ? 'Etapa 2 · sala e cozinha em avaliação · demais ambientes sem acabamento · medidas estimadas'
+            : 'Etapa 1 · geometria em conferência · medidas estimadas · visual provisório'}
         </div>
       )}
+      {PHOTO && <LoadingOverlay />}
 
       <header className="topbar">
         <div className="brand">
