@@ -711,6 +711,10 @@ CAMERAS = {
     'cozinha': dict(eye=(3.35, 4.55, 1.4), target=(0.3, 2.9, 1.25), lens=22, shift_y=-0.08),
     # Detalhes para conferência rápida (sofá + tapete).
     'sofa-detalhe': dict(eye=(2.95, 3.25, 1.05), target=(1.9, 1.85, 0.45), lens=32, shift_y=0.0, pitch=True),
+    'jantar-detalhe': dict(eye=(3.2, 4.25, 1.45), target=(2.2, 5.25, 0.55), lens=28, shift_y=0.0, pitch=True),
+    # Câmeras de conferência para a navegação livre (ângulos não favoráveis / de perto).
+    'conf-sofa-lateral': dict(eye=(1.75, 3.1, 0.9), target=(1.95, 1.8, 0.45), lens=30, shift_y=0.0, pitch=True),
+    'conf-cozinha-perto': dict(eye=(1.25, 3.5, 1.6), target=(0.35, 2.6, 0.95), lens=28, shift_y=0.0, pitch=True),
 }
 
 
