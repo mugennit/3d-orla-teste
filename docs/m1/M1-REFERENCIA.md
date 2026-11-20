@@ -87,3 +87,35 @@ Pedidos: sofá, tapete, exposição da varanda, materiais, composição e decora
 | Decoração | manta de tricô dobrada no sofá, **vaso de vidro com flores** na mesa (Khronos glTF Sample Assets, **CC0**), livros no rack | prévias |
 
 Balanço de branco ajustado para 8000 K (luz de céu mais fria que a da rodada 1).
+
+### Resultado da rodada 2 (renders finais) e avaliação crítica
+
+Arquivos: `rodada2-sala-cozinha.jpg`, `rodada2-cozinha.jpg` (1920×1080, 512 amostras),
+`rodada2-sofa-detalhe.jpg` (1600×900, 256), `rodada2-cozinha-book.jpg`,
+`rodada2-jantar-detalhe.jpg`, `rodada2-conf-sofa-lateral.jpg`,
+`rodada2-conf-cozinha-perto.jpg` (1280×720, 192).
+
+**Melhorou:** exposição da varanda (céu controlado, cortina legível); tecido da estrutura do
+sofá (trama visível); rolos com franzido e botão; tapete com relevo e espessura; bancada de
+perto (revestimento, torneira, tábua, cooktop) convincente; luz difusa coerente.
+
+**Ainda reprovaria (por gravidade):**
+1. **Almofadas do sofá (falha principal):** assento e encosto parecem blocos rígidos
+   empilhados ("degraus"), sem textura de tecido (acabamento liso de argila, diferente da
+   estrutura); o "vivo" virou um ressalto em degrau. A almofada azul está facetada e a manta
+   dobrada parece uma tábua marrom. Visível em todas as vistas do sofá, sobretudo de perto.
+2. **Textura do braço do sofá:** redemoinho radial no topo do braço (UV esticado), visível
+   na vista lateral.
+3. **Geladeira:** domina as vistas "sala-cozinha", "cozinha" e "cozinha-book" (a planta a
+   coloca no eixo da circulação); o painel preto retangular na porta parece falso.
+4. **Mesa de jantar:** veio da madeira grande e alaranjado; nos pés o veio está esticado
+   (aspecto de corda). O vaso de vidro com flores lê-se bem; o conjunto tem um elemento
+   escuro na borda do vaso que parece estranho.
+5. **Granito:** grão grande e contrastado demais (parece cortiça); cuba sem profundidade
+   aparente; aresta frontal com estrias.
+6. **Cadeiras:** concha branca com assento cinza liso, aparência de plástico.
+7. **Ambiente geral:** tom levemente frio/azulado; paredes sem tomadas/interruptores e teto
+   sem luminárias (não confirmados no book); planta do rack e borda da mesa cortadas nas
+   bordas do quadro.
+
+Nenhum ajuste foi feito após estes renders (aguardando avaliação do cliente).
