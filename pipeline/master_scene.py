@@ -28,6 +28,7 @@ PREVIEW = '--preview' in ARGS
 SAMPLES = int(ARGS[ARGS.index('--samples') + 1]) if '--samples' in ARGS else (48 if PREVIEW else 512)
 RES = tuple(int(v) for v in (ARGS[ARGS.index('--res') + 1] if '--res' in ARGS else ('960x540' if PREVIEW else '1920x1080')).split('x'))
 OUT = os.path.join(B.REPO, '.cache', 'master')
+WINDOW_SKY = float(ARGS[ARGS.index('--window') + 1]) if '--window' in ARGS else 0.45
 EXPOSURE = float(ARGS[ARGS.index('--exposure') + 1]) if '--exposure' in ARGS else 1.3
 os.makedirs(OUT, exist_ok=True)
 V = B.V
@@ -59,6 +60,70 @@ def swap_rough(mat, name, src, scale, offset):
             img = bpy.data.images.load(B.processed(name, src, B.rough_fn(scale, offset)), check_existing=True)
             img.colorspace_settings.name = 'Non-Color'
             lk.from_node.image = img
+
+
+def add_variation(mat, scale=6.0, color_amt=0.08, rough_amt=0.06, bump=0.0, bump_scale=None):
+    """Quebra a uniformidade: variação sutil de cor/rugosidade (ruído em coordenadas do objeto)
+    e microrrelevo opcional. Só para o render da cena-mestra."""
+    nt = B.MATS[mat].node_tree
+    b = nt.nodes['Principled BSDF']
+    tc = nt.nodes.new('ShaderNodeTexCoord')
+    nz = nt.nodes.new('ShaderNodeTexNoise')
+    nz.inputs['Scale'].default_value = scale
+    nz.inputs['Detail'].default_value = 6
+    nz.inputs['Roughness'].default_value = 0.55
+    nt.links.new(tc.outputs['Object'], nz.inputs['Vector'])
+
+    def src(sock, kind):
+        for lk in nt.links:
+            if lk.to_socket == sock:
+                return lk.from_socket
+        if kind == 'color':
+            n = nt.nodes.new('ShaderNodeRGB')
+            n.outputs[0].default_value = sock.default_value
+            return n.outputs[0]
+        n = nt.nodes.new('ShaderNodeValue')
+        n.outputs[0].default_value = sock.default_value
+        return n.outputs[0]
+
+    if color_amt:
+        c = src(b.inputs['Base Color'], 'color')
+        mix = nt.nodes.new('ShaderNodeMix')
+        mix.data_type = 'RGBA'
+        mix.blend_type = 'OVERLAY'
+        mix.inputs['Factor'].default_value = color_amt
+        ca = next(i for i in mix.inputs if i.name == 'A' and i.type == 'RGBA')
+        cb = next(i for i in mix.inputs if i.name == 'B' and i.type == 'RGBA')
+        out = next(o for o in mix.outputs if o.type == 'RGBA')
+        nt.links.new(c, ca)
+        nt.links.new(nz.outputs['Color'], cb)
+        nt.links.new(out, b.inputs['Base Color'])
+    if rough_amt:
+        r = src(b.inputs['Roughness'], 'value')
+        sub = nt.nodes.new('ShaderNodeMath')
+        sub.operation = 'SUBTRACT'
+        sub.inputs[1].default_value = 0.5
+        nt.links.new(nz.outputs['Fac'], sub.inputs[0])
+        mad = nt.nodes.new('ShaderNodeMath')
+        mad.operation = 'MULTIPLY_ADD'
+        mad.inputs[1].default_value = rough_amt * 2
+        nt.links.new(sub.outputs[0], mad.inputs[0])
+        nt.links.new(r, mad.inputs[2])
+        nt.links.new(mad.outputs[0], b.inputs['Roughness'])
+    if bump:
+        bn = nt.nodes.new('ShaderNodeBump')
+        bn.inputs['Strength'].default_value = bump
+        h = nz
+        if bump_scale:
+            h = nt.nodes.new('ShaderNodeTexNoise')
+            h.inputs['Scale'].default_value = bump_scale
+            h.inputs['Detail'].default_value = 8
+            nt.links.new(tc.outputs['Object'], h.inputs['Vector'])
+        nt.links.new(h.outputs['Fac'], bn.inputs['Height'])
+        for lk in list(nt.links):
+            if lk.to_socket == b.inputs['Normal']:
+                nt.links.new(lk.from_socket, bn.inputs['Normal'])
+        nt.links.new(bn.outputs['Normal'], b.inputs['Normal'])
 
 
 def refine_materials():
@@ -112,6 +177,15 @@ def refine_materials():
     bsdf('backsplash').inputs['Coat Weight'].default_value = 0.6
     bsdf('backsplash').inputs['Coat Roughness'].default_value = 0.04
 
+    # Variação: nenhuma superfície perfeitamente uniforme.
+    add_variation('paint', scale=1.5, color_amt=0.05, rough_amt=0.05, bump=0.04, bump_scale=120)
+    add_variation('ceiling', scale=1.2, color_amt=0.04, rough_amt=0.03)
+    add_variation('oak_warm', scale=3, color_amt=0.12, rough_amt=0.08)
+    add_variation('oak_light', scale=3, color_amt=0.1, rough_amt=0.08)
+    add_variation('linen_grey', scale=2.5, color_amt=0.1, rough_amt=0.04, bump=0.08, bump_scale=40)
+    add_variation('steel', scale=9, color_amt=0.0, rough_amt=0.08)  # marcas sutis de uso no inox
+    add_variation('lacquer_greige', scale=4, color_amt=0.03, rough_amt=0.06)
+    add_variation('porcelain', scale=2, color_amt=0.0, rough_amt=0.05)
     # Novos materiais da cena-mestra.
     B.make_mat('voile', base=(0.92, 0.91, 0.88), roughness=0.9)
     v = bsdf('voile')
@@ -139,6 +213,13 @@ def refine_materials():
     B.make_mat('brass', base=B.lin('#c9a46a'), roughness=0.25, metallic=1.0)
     B.make_mat('ceramic_matte_sand', base=B.lin('#cdbfae'), roughness=0.7)
     B.make_mat('ceramic_glazed_white', base=B.lin('#f1efe9'), roughness=0.12)
+    B.make_mat('throw_knit', color=B.processed('throw_knit', acg('Fabric045', 'Color'), B.recolor(B.srgb('#b38a63'), 1.2)),
+               normal=acg('Fabric045', 'NormalGL'), nstrength=1.2, roughness=0.95, tile=0.12)
+    bsdf('throw_knit').inputs['Sheen Weight'].default_value = 0.7
+    B.make_mat('rug_binding', base=B.lin('#9c8a70'), roughness=0.9)
+    bsdf('rug_binding').inputs['Sheen Weight'].default_value = 0.5
+    B.make_mat('linen_piping', color=B.processed('linen_grey_m1', acg('Fabric045', 'Color'), B.recolor(B.srgb('#a8a49c'), 0.7)),
+               roughness=0.9, tile=0.05)
 
 
 # =============================================================================
@@ -152,10 +233,10 @@ def inflate(ob, pressure=4.0, frames=18, shrink=0.0, quality=6):
     s = mod.settings
     s.quality = quality
     s.mass = 0.3
-    s.tension_stiffness = 12
-    s.compression_stiffness = 12
-    s.shear_stiffness = 6
-    s.bending_stiffness = 0.6
+    s.tension_stiffness = 40
+    s.compression_stiffness = 40
+    s.shear_stiffness = 20
+    s.bending_stiffness = 2.0
     s.use_pressure = True
     s.uniform_pressure_force = pressure
     s.shrink_min = shrink
@@ -239,52 +320,148 @@ def place(obs, name, facing, at, group='furn'):
 # Mobiliário de alto detalhe (posições e medidas do book: sala-cozinha.ts)
 # =============================================================================
 
+def seat_dip(ob, depth=0.012, sigma=0.16):
+    """Leve afundamento de uso no topo do assento."""
+    zs = [v.co.z for v in ob.data.vertices]
+    zt = max(zs)
+    xs = [v.co.x for v in ob.data.vertices]
+    ys = [v.co.y for v in ob.data.vertices]
+    cx, cy = (max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2
+    for v in ob.data.vertices:
+        if v.co.z > zt - 0.05:
+            d2 = (v.co.x - cx) ** 2 + (v.co.y - cy) ** 2
+            v.co.z -= depth * math.exp(-d2 / (2 * sigma * sigma)) * (v.co.z - (zt - 0.05)) / 0.05
+
+
+def piping(name, ob, z_rel, inset=0.004, radius=0.0045, mat='linen_piping'):
+    """Vivo (cordão de costura) contornando a almofada na altura z_rel (0 = base, 1 = topo)."""
+    vs = [ob.matrix_world @ v.co for v in ob.data.vertices]
+    zmin, zmax = min(v.z for v in vs), max(v.z for v in vs)
+    z = zmin + (zmax - zmin) * z_rel
+    band = [v for v in vs if abs(v.z - z) < 0.012] or vs
+    x0, x1 = min(v.x for v in band) + inset, max(v.x for v in band) - inset
+    y0, y1 = min(v.y for v in band) + inset, max(v.y for v in band) - inset
+    r = min(0.035, (x1 - x0) / 4, (y1 - y0) / 4)
+    cu = bpy.data.curves.new(name, 'CURVE')
+    cu.dimensions = '3D'
+    cu.bevel_depth = radius
+    cu.bevel_resolution = 3
+    sp = cu.splines.new('POLY')
+    pts = []
+    for (cx, cy, a0) in ((x1 - r, y1 - r, 0), (x0 + r, y1 - r, 90), (x0 + r, y0 + r, 180), (x1 - r, y0 + r, 270)):
+        for k in range(7):
+            a = math.radians(a0 + 90 * k / 6)
+            pts.append((cx + r * math.cos(a), cy + r * math.sin(a), z))
+    sp.points.add(len(pts) - 1)
+    for p_, c in zip(sp.points, pts):
+        p_.co = (*c, 1)
+    sp.use_cyclic_u = True
+    o = bpy.data.objects.new(name, cu)
+    B.coll('FURN').objects.link(o)
+    bpy.context.view_layer.objects.active = o
+    for x in bpy.context.view_layer.objects:
+        x.select_set(x == o)
+    bpy.ops.object.convert(target='MESH')
+    o.data.materials.clear()
+    o.data.materials.append(B.MATS[mat])
+    return o
+
+
+def bolster(name, length=0.44, radius=0.1, mat='linen_grey'):
+    """Rolo com corpo levemente abaulado e pontas franzidas com botão (eixo X)."""
+    bm = bmesh.new()
+    nseg, nl = 48, 24
+    rings = []
+    for j in range(nl + 1):
+        t = j / nl
+        x = -length / 2 + length * t
+        rr = radius * (1 + 0.035 * math.sin(math.pi * t))
+        rings.append([bm.verts.new((x, rr * math.cos(2 * math.pi * i / nseg), rr * math.sin(2 * math.pi * i / nseg))) for i in range(nseg)])
+    for j in range(nl):
+        for i in range(nseg):
+            bm.faces.new([rings[j][i], rings[j][(i + 1) % nseg], rings[j + 1][(i + 1) % nseg], rings[j + 1][i]])
+    for end, sign in ((rings[0], -1), (rings[-1], 1)):
+        prev = end
+        nr = 7
+        for k in range(1, nr + 1):
+            f = 1 - k / (nr + 0.6)
+            x0 = sign * (length / 2 + 0.012 * math.sin(math.pi * k / (nr + 1)) - 0.004 * k)
+            ring = []
+            for i in range(nseg):
+                a = 2 * math.pi * i / nseg
+                pleat = 1 + 0.12 * (k / nr) * math.sin(14 * a)
+                rr = radius * f * pleat
+                ring.append(bm.verts.new((x0, rr * math.cos(a), rr * math.sin(a))))
+            for i in range(nseg):
+                q = [prev[i], prev[(i + 1) % nseg], ring[(i + 1) % nseg], ring[i]]
+                bm.faces.new(q if sign > 0 else q[::-1])
+            prev = ring
+        c = bm.verts.new((sign * (length / 2 - 0.02), 0, 0))
+        for i in range(nseg):
+            tri = [prev[i], prev[(i + 1) % nseg], c]
+            bm.faces.new(tri if sign > 0 else tri[::-1])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    B.world_uv(bm, B.TILE[mat])
+    o = B.mesh_obj(name, bm, mat, 'FURN')
+    m = o.modifiers.new('sub', 'SUBSURF')
+    m.levels = m.render_levels = 1
+    bpy.context.view_layer.objects.active = o
+    for x in bpy.context.view_layer.objects:
+        x.select_set(x == o)
+    bpy.ops.object.modifier_apply(modifier=m.name)
+    for p_ in o.data.polygons:
+        p_.use_smooth = True
+    for sign in (-1, 1):  # botões
+        bmb = bmesh.new()
+        bmesh.ops.create_uvsphere(bmb, u_segments=16, v_segments=8, radius=0.014)
+        bmesh.ops.scale(bmb, vec=(0.5, 1, 1), verts=bmb.verts)
+        bmesh.ops.translate(bmb, vec=(sign * (length / 2 - 0.012), 0, 0), verts=bmb.verts)
+        B.world_uv(bmb, 0.1)
+        btn = B.mesh_obj(name + '_botao', bmb, mat, 'FURN')
+        for p_ in btn.data.polygons:
+            p_.use_smooth = True
+        o = B.join([o, btn], name)
+    return o
+
+
 def sofa_pro():
     it = B.item('sofa')
     x0, y0, x1, y1 = it['rect']
     W, D = abs(y1 - y0), abs(x1 - x0)
-    arm, seat_h = 0.15, 0.42
+    arm, seat_h = 0.16, 0.43
     parts = []
-    # Base estofada e braços (cantos macios, costura implícita pela suavização).
-    parts.append(smooth_box('sofa_base', 'linen_grey', (D - 0.02, W - 2 * arm + 0.03, 0.2), (0.0, 0, 0.13 + 0.1), bevel=0.04))
+    # Estrutura: base com saia e encosto estofados (inflados = superfícies macias, sem arestas duras).
+    # Estrutura estofada firme (cantos arredondados, sem simulação) + vivo no topo dos braços.
+    parts.append(smooth_box('sofa_base', 'linen_grey', (D - 0.03, W - 2 * arm + 0.04, 0.2), (0.0, 0, 0.13 + 0.1), bevel=0.035))
+    parts.append(smooth_box('sofa_costas', 'linen_grey', (0.16, W - 2 * arm + 0.04, 0.46), (-D / 2 + 0.085, 0, 0.25 + 0.23), bevel=0.05))
     for s in (-1, 1):
-        parts.append(smooth_box('sofa_braco', 'linen_grey', (D, arm, 0.48), (0, s * (W / 2 - arm / 2), 0.11 + 0.24), bevel=0.06))
-    parts.append(smooth_box('sofa_costas', 'linen_grey', (0.16, W - 2 * arm + 0.02, 0.44), (-D / 2 + 0.08, 0, 0.23 + 0.22), bevel=0.05))
+        a = smooth_box('sofa_braco', 'linen_grey', (D, arm, 0.5), (0, s * (W / 2 - arm / 2), 0.11 + 0.25), bevel=0.055)
+        parts.append(a)
+        parts.append(piping('vivo_braco', a, 0.94, inset=0.02))
     cw = (W - 2 * arm) / 2
     for s in (-0.5, 0.5):
-        parts.append(cushion('sofa_assento', 'linen_grey', (D - 0.2, cw - 0.012, 0.15), (0.07, s * cw, seat_h - 0.06), pressure=3.5))
-        parts.append(cushion('sofa_encosto', 'linen_grey', (0.17, cw - 0.02, 0.42), (-D / 2 + 0.22, s * cw, seat_h + 0.2),
-                             pressure=4.5, rot=(0, -0.2, 0)))
-    # Rolos laterais (book): cilindros macios com franzido nas pontas.
+        seat = cushion('sofa_assento', 'linen_grey', (D - 0.19, cw - 0.012, 0.16), (0.07, s * cw, seat_h - 0.06), cuts=18, pressure=2.0)
+        seat_dip(seat)
+        parts += [seat, piping('vivo_assento', seat, 0.92), piping('vivo_assento', seat, 0.1)]
+        back = cushion('sofa_encosto', 'linen_grey', (0.18, cw - 0.02, 0.44), (-D / 2 + 0.23, s * cw, seat_h + 0.21), cuts=24, pressure=1.5,
+                       bevel=0.045,
+                       rot=(0, -0.22, 0))
+        parts.append(back)
+    # Rolos laterais (book) com pontas franzidas e botão, apoiados nos braços/encosto.
     for s in (-1, 1):
-        bm = bmesh.new()
-        bmesh.ops.create_cone(bm, cap_ends=True, segments=40, radius1=0.095, radius2=0.095, depth=0.46)
-        bmesh.ops.subdivide_edges(bm, edges=[e for e in bm.edges if abs(e.verts[0].co.z - e.verts[1].co.z) > 0.1], cuts=8)
-        bmesh.ops.triangulate(bm, faces=bm.faces[:])
-        bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=Matrix.Rotation(math.pi / 2, 3, 'Y'))
-        me = bpy.data.meshes.new('rolo')
-        bm.to_mesh(me)
-        bm.free()
-        me.materials.append(B.MATS['linen_grey'])
-        ob = bpy.data.objects.new('rolo', me)
-        B.coll('FURN').objects.link(ob)
-        inflate(ob, pressure=2.5, frames=12)
-        sub = ob.modifiers.new('sub', 'SUBSURF')
-        sub.levels = sub.render_levels = 1
-        bpy.context.view_layer.objects.active = ob
-        bpy.ops.object.modifier_apply(modifier=sub.name)
-        for p in ob.data.polygons:
-            p.use_smooth = True
-        ob.location = (0.02, s * (W / 2 - arm - 0.1), seat_h + 0.18)
-        parts.append(ob)
-    # Almofadas de decoração (tecido infladas: cantos "orelha" e rugas).
-    for s, mt, rz, tilt in ((-0.17, 'pillow_sage', 0.18, -0.35), (0.16, 'pillow_ochre', -0.12, -0.3)):
-        parts.append(cushion('almofada', mt, (0.45, 0.45, 0.06), (-D / 2 + 0.32, s, seat_h + 0.26), cuts=18, pressure=6.0, bevel=0.005,
+        b_ = bolster('rolo', length=0.46, radius=0.095)
+        b_.location = (0.04, s * (W / 2 - arm - 0.095), seat_h + 0.15)
+        parts.append(b_)
+    # Almofadas decorativas (tecido inflado com cantos "orelha"), levemente amassadas.
+    for s, mt, rz, tilt in ((-0.17, 'pillow_sage', 0.18, -0.32), (0.15, 'pillow_ochre', -0.1, -0.28)):
+        parts.append(cushion('almofada', mt, (0.45, 0.45, 0.06), (-D / 2 + 0.33, s, seat_h + 0.27), cuts=21, pressure=3.5, bevel=0.005,
                              rot=(math.pi / 2 + rz * 0.2, tilt, math.pi / 2 + rz)))
-    # Pés cônicos em madeira.
     for sx in (-1, 1):
         for sy in (-1, 1):
             parts.append(tapered_leg('sofa_pe', 'oak_warm', 0.022, 0.014, 0.13, (sx * (D / 2 - 0.07), sy * (W / 2 - 0.07), 0.0)))
+    # Manta dobrada sobre o assento (decoração discreta).
+    parts.append(cushion('manta', 'throw_knit', (0.34, 0.42, 0.05), (0.1, cw - 0.2, seat_h + 0.07), cuts=15, pressure=1.2, bevel=0.012,
+                         rot=(0, 0, 0.12)))
     return place(parts, 'MOV_sofa', it['facing'], ((x0 + x1) / 2, (y0 + y1) / 2))
 
 
@@ -355,13 +532,56 @@ def dining_pro():
 
 
 def rug_pro():
+    """Tapete redondo com espessura, relevo real da trama (deslocamento) e debrum na borda."""
     it = B.item('tapete')
     r = it['scale'] / 2
+    cx, cy = it['at']
     bm = bmesh.new()
-    bmesh.ops.create_cone(bm, cap_ends=True, segments=160, radius1=r, radius2=r, depth=0.014)
-    bmesh.ops.translate(bm, vec=V(it['at'][0], it['at'][1], 0.0075), verts=bm.verts)
+    bmesh.ops.create_grid(bm, x_segments=220, y_segments=220, size=r)
+    dead = [v for v in bm.verts if v.co.x ** 2 + v.co.y ** 2 > (r - 0.005) ** 2]
+    bmesh.ops.delete(bm, geom=dead, context='VERTS')
+    bmesh.ops.translate(bm, vec=V(cx, cy, 0.018), verts=bm.verts)
     B.world_uv(bm, B.TILE['rug'])
     o = B.mesh_obj('MOV_tapete', bm, 'rug', 'FURN')
+    tex = bpy.data.textures.new('rug_disp', 'IMAGE')
+    tex.image = bpy.data.images.load(B.tex_path('acg', 'Carpet014', 'Displacement'), check_existing=True)
+    d = o.modifiers.new('relevo', 'DISPLACE')
+    d.texture = tex
+    d.texture_coords = 'UV'
+    d.strength = 0.006
+    d.mid_level = 0.5
+    sol = o.modifiers.new('espessura', 'SOLIDIFY')
+    sol.thickness = 0.016
+    sol.offset = -1
+    bpy.context.view_layer.objects.active = o
+    for x in bpy.context.view_layer.objects:
+        x.select_set(x == o)
+    for m in list(o.modifiers):
+        bpy.ops.object.modifier_apply(modifier=m.name)
+    for p_ in o.data.polygons:
+        p_.use_smooth = True
+    # debrum (acabamento de borda)
+    cu = bpy.data.curves.new('debrum', 'CURVE')
+    cu.dimensions = '3D'
+    cu.bevel_depth = 0.011
+    cu.bevel_resolution = 4
+    sp = cu.splines.new('POLY')
+    n = 180
+    sp.points.add(n - 1)
+    for i, p_ in enumerate(sp.points):
+        a = 2 * math.pi * i / n
+        q = V(cx + (r - 0.006) * math.cos(a), cy + (r - 0.006) * math.sin(a), 0.011)
+        p_.co = (q.x, q.y, q.z, 1)
+    sp.use_cyclic_u = True
+    b = bpy.data.objects.new('MOV_tapete_debrum', cu)
+    B.coll('FURN').objects.link(b)
+    bpy.context.view_layer.objects.active = b
+    for x in bpy.context.view_layer.objects:
+        x.select_set(x == b)
+    bpy.ops.object.convert(target='MESH')
+    b.data.materials.clear()
+    b.data.materials.append(B.MATS['rug_binding'])
+    o = B.join([o, b], 'MOV_tapete')
     o['lightmap'] = 'furn'
 
 
@@ -422,7 +642,34 @@ def books_stack(at, z, n=4, rot=0.0, name='livros'):
 def decor_pro():
     # Livros sobre o rack, junto aos vasos (book: rack com objetos).
     books_stack(((281 + 316) / 2 / B.PX - 42 / B.PX, (455 - 318) / B.PX), 0.52, n=3, rot=0.05, name='DEC_livros_rack')
-    # Livros + bandeja na mesa? Mantém mesa limpa com bowl. Livros na prateleira da cozinha não (book: vasos).
+    # Vaso de vidro com flores sobre a mesa de jantar (Khronos glTF Sample Assets, CC0).
+    path = os.path.join(B.ASSETS, 'khronos', 'GlassVaseFlowers.glb')
+    if os.path.exists(path):
+        before = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=path)
+        new = [o for o in bpy.data.objects if o not in before]
+        meshes = [o for o in new if o.type == 'MESH']
+        others = [o.name for o in new if o.type != 'MESH']
+        for o in new:
+            for c in o.users_collection:
+                c.objects.unlink(o)
+            B.coll('FURN').objects.link(o)
+        for o in bpy.context.view_layer.objects:
+            o.select_set(o in meshes)
+        bpy.context.view_layer.objects.active = meshes[0]
+        bpy.ops.object.make_single_user(object=True, obdata=True)
+        bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        vase = B.join(meshes, 'DEC_vaso_flores')
+        for n in others:
+            if n in bpy.data.objects:
+                bpy.data.objects.remove(bpy.data.objects[n])
+        mn = min((vase.matrix_world @ Vector(c)).z for c in vase.bound_box)
+        mesa = B.item('mesa')
+        x0, y0, x1, y1 = mesa['rect']
+        bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+        vase.location = V((x0 + x1) / 2 + 0.12, (y0 + y1) / 2 - 0.22, 0) + Vector((0, 0, mesa['z'][1] + (vase.location.z - mn)))
+        vase.scale = (1.4, 1.4, 1.4)
 
 
 # =============================================================================
@@ -437,7 +684,17 @@ def interior_lighting():
     if sun:
         bpy.data.objects.remove(sun)
     sky.sun_elevation = math.radians(55)
-    sc.world.node_tree.nodes['Background'].inputs['Strength'].default_value = 1.0
+    nt = sc.world.node_tree
+    bg = nt.nodes['Background']
+    # Controle de "janela estourada": o céu VISTO PELA CÂMERA é atenuado, a luz que entra no
+    # ambiente não muda (equivalente ao bracketing/HDR de fotografia de interiores).
+    lp = nt.nodes.new('ShaderNodeLightPath')
+    k = nt.nodes.new('ShaderNodeMath')
+    k.operation = 'MULTIPLY_ADD'
+    k.inputs[1].default_value = -(1 - WINDOW_SKY)
+    k.inputs[2].default_value = 1.0
+    nt.links.new(lp.outputs['Is Camera Ray'], k.inputs[0])
+    nt.links.new(k.outputs[0], bg.inputs['Strength'])
     # LED da cozinha e pendente acesos (como nas perspectivas do book), discretos.
     B.MATS['led'].node_tree.nodes['Principled BSDF'].inputs['Emission Strength'].default_value = 12.0
     pl = bpy.data.lights.get('pendente')
@@ -447,9 +704,13 @@ def interior_lighting():
 
 CAMERAS = {
     # Sala + parte da cozinha (vista da entrada/jantar para a varanda).
-    'sala-cozinha': dict(eye=(3.05, 5.55, 1.3), target=(1.3, 1.0, 1.3), lens=19, shift_y=-0.07),
+    'sala-cozinha': dict(eye=(3.3, 4.4, 1.3), target=(0.3, 2.35, 1.3), lens=19, shift_y=-0.06),
     # Cozinha no ponto de vista aproximado da perspectiva oficial do book.
-    'cozinha-book': dict(eye=(1.85, 4.95, 1.45), target=(0.45, 1.9, 1.3), lens=22, shift_y=-0.04),
+    'cozinha-book': dict(eye=(1.5, 5.62, 1.42), target=(0.42, 1.8, 1.3), lens=21, shift_y=-0.04),
+    # Cozinha vista de dentro (da área de serviço para o jantar): bancada em primeiro plano, geladeira ao fundo.
+    'cozinha': dict(eye=(3.35, 4.55, 1.4), target=(0.3, 2.9, 1.25), lens=22, shift_y=-0.08),
+    # Detalhes para conferência rápida (sofá + tapete).
+    'sofa-detalhe': dict(eye=(2.95, 3.25, 1.05), target=(1.9, 1.85, 0.45), lens=32, shift_y=0.0, pitch=True),
 }
 
 
@@ -468,7 +729,8 @@ def camera(name):
     d = tgt - eye
     yaw = math.atan2(d.y, d.x)
     cam.location = eye
-    cam.rotation_euler = (math.pi / 2, 0, yaw - math.pi / 2)
+    pitch = math.atan2(d.z, math.hypot(d.x, d.y)) if c.get('pitch') else 0.0
+    cam.rotation_euler = (math.pi / 2 + pitch, 0, yaw - math.pi / 2)
     sc.camera = cam
     return cam
 
@@ -494,7 +756,7 @@ def render(name):
     # Balanço de branco "de fotógrafo": neutraliza o azul da luz de céu.
     if hasattr(sc.view_settings, 'use_white_balance'):
         sc.view_settings.use_white_balance = True
-        sc.view_settings.white_balance_temperature = 7400
+        sc.view_settings.white_balance_temperature = 8000
         sc.view_settings.white_balance_tint = 4
     sc.render.resolution_x, sc.render.resolution_y = RES
     sc.render.resolution_percentage = 100

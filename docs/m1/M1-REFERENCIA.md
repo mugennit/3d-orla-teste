@@ -72,3 +72,18 @@ final em 2560×1440.
 ## Tempo de produção (CPU, sem GPU)
 Prévia 960×540 (48 amostras): ~40 s por vista. Render final 1920×1080 (512 amostras):
 ~45–60 min por vista.
+
+## Rodada 2 de ajustes (após a avaliação do cliente)
+
+Pedidos: sofá, tapete, exposição da varanda, materiais, composição e decoração.
+
+| Pedido | O que foi feito | Como foi verificado |
+|---|---|---|
+| Sofá | estrutura estofada com cantos arredondados (braços, encosto e base) com **vivo** no topo dos braços; almofadas de assento e encosto em tecido simulado, mais rígido (sem amassados irreais), com **vivo** superior/inferior e **afundamento de uso**; rolos com **pontas franzidas e botão**; microrrelevo do tecido | câmera de detalhe `sofa-detalhe` (960×540, 64 amostras, ~2 min por iteração; 3 iterações) |
+| Tapete | 16 mm de espessura, **relevo real da trama** (deslocamento pelo mapa do Carpet014) e **debrum** na borda | idem |
+| Varanda estourada | o céu **visto pela câmera** é atenuado (`--window`, padrão 0,45), sem alterar a luz que entra no ambiente (equivalente ao bracketing/HDR de fotografia de interiores) | prévias 960×540 |
+| Materiais | variação sutil de cor/rugosidade e microrrelevo: pintura (rolo), teto, carvalho, linho, inox (marcas de uso), laca, porcelanato | prévias |
+| Composição | **sala**: nova câmera a partir da circulação (cozinha + sofá + varanda; pendente fora do quadro); **cozinha**: vista frontal a partir da circulação (bancada inteira; geladeira com ~¼ do quadro) | prévias; a vista "cozinha-book" (ponto de vista oficial) segue disponível no script |
+| Decoração | manta de tricô dobrada no sofá, **vaso de vidro com flores** na mesa (Khronos glTF Sample Assets, **CC0**), livros no rack | prévias |
+
+Balanço de branco ajustado para 8000 K (luz de céu mais fria que a da rodada 1).
