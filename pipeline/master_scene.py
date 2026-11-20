@@ -17,6 +17,7 @@ if '--quality' not in sys.argv:
     sys.argv += ['--quality', 'final']  # texturas 2K na cena-mestra
 
 import build_scene as B  # noqa: E402
+import models as M  # noqa: E402
 import bmesh  # noqa: E402
 import bpy  # noqa: E402
 import math  # noqa: E402
@@ -169,7 +170,9 @@ def refine_materials():
     # Laca: leve verniz.
     for n in ('lacquer_white', 'lacquer_greige'):
         bsdf(n).inputs['Coat Weight'].default_value = 0.2
-    # Granito polido.
+    # Granito polido: grão mais fino (escala real ~0,35 m) e contraste moderado.
+    swap_color('granite', 'granite_m3', (acg('Granite004B', 'Color'),
+               lambda x: B.np.clip((x - x.mean(axis=(0, 1))) * 0.55 + x.mean(axis=(0, 1)) * 1.18 + 0.05, 0, 1)))
     b = bsdf('granite')
     b.inputs['Coat Weight'].default_value = 0.5
     b.inputs['Coat Roughness'].default_value = 0.05
@@ -186,6 +189,14 @@ def refine_materials():
     add_variation('steel', scale=9, color_amt=0.0, rough_amt=0.08)  # marcas sutis de uso no inox
     add_variation('lacquer_greige', scale=4, color_amt=0.03, rough_amt=0.06)
     add_variation('porcelain', scale=2, color_amt=0.0, rough_amt=0.05)
+    # Rodada 3: carvalho natural para a mesa (veio em escala real, menos alaranjado).
+    B.make_mat('oak_table',
+               color=B.processed('oak_table', ph('oak_veneer_01', 'diff'), lambda x: B.np.clip((x - x.mean()) * 0.8 + x.mean() * B.np.array([0.98, 0.93, 0.87]), 0, 1)),
+               normal=ph('oak_veneer_01', 'nor_gl'), nstrength=0.4,
+               rough=B.processed('oak_table_rough', ph('oak_veneer_01', 'rough'), B.rough_fn(0.55, 0.12)), tile=0.45)
+    bsdf('oak_table').inputs['Coat Weight'].default_value = 0.2
+    bsdf('oak_table').inputs['Coat Roughness'].default_value = 0.25
+    add_variation('oak_table', scale=4, color_amt=0.06, rough_amt=0.06)
     # Novos materiais da cena-mestra.
     B.make_mat('voile', base=(0.92, 0.91, 0.88), roughness=0.9)
     v = bsdf('voile')
@@ -513,18 +524,20 @@ def dining_pro():
     it = B.item('mesa')
     x0, y0, x1, y1 = it['rect']
     hz = it['z'][1]
-    parts = [smooth_box('mesa_tampo', 'oak_warm', (abs(x1 - x0), abs(y1 - y0) - 0.01, 0.032), V((x0 + x1) / 2, (y0 + y1) / 2 - 0.005, hz - 0.016),
+    parts = [smooth_box('mesa_tampo', 'oak_table', (abs(x1 - x0), abs(y1 - y0) - 0.01, 0.032), V((x0 + x1) / 2, (y0 + y1) / 2 - 0.005, hz - 0.016),
                         bevel=0.006, sub=1)]
     for lx in (x0 + 0.07, x1 - 0.07):
         for ly in (y0 + 0.07, y1 - 0.08):
             p = V(lx, ly, 0)
-            parts.append(tapered_leg('mesa_pe', 'oak_warm', 0.024, 0.017, hz - 0.032, (p.x, p.y, 0)))
-    parts.append(B.plan_box('mesa_saia', 'oak_warm', x0 + 0.06, y0 + 0.06, x1 - 0.06, y1 - 0.07, hz - 0.1, hz - 0.032, bevel=0.003))
+            leg = tapered_leg('mesa_pe', 'oak_table', 0.024, 0.017, hz - 0.032, (p.x, p.y, 0))
+            cylinder_uv(leg, B.TILE['oak_table'])
+            parts.append(leg)
+    parts.append(B.plan_box('mesa_saia', 'oak_table', x0 + 0.06, y0 + 0.06, x1 - 0.06, y1 - 0.07, hz - 0.1, hz - 0.032, bevel=0.003))
     t = B.join(parts, 'MOV_mesa')
     t['lightmap'] = 'furn'
     for cid in ('cadeira-1', 'cadeira-2', 'cadeira-3', 'cadeira-4'):
         c = B.item(cid)
-        ob = shell_chair(f'MOV_{cid}')
+        ob = chair_model(f'MOV_{cid}')
         ob.rotation_mode = 'XYZ'
         ob.rotation_euler = (0, 0, B.FACING[c['facing']])
         ob.location = V(c['at'][0], c['at'][1], 0)
@@ -639,6 +652,159 @@ def books_stack(at, z, n=4, rot=0.0, name='livros'):
     return o
 
 
+# =============================================================================
+# Rodada 3: modelos profissionais de terceiros (licenças em pipeline/models.py)
+# =============================================================================
+
+def _image_of(mat, socket='Base Color'):
+    b = mat.node_tree.nodes.get('Principled BSDF')
+    for lk in mat.node_tree.links:
+        if b and lk.to_socket == b.inputs[socket] and lk.from_node.type == 'TEX_IMAGE':
+            return lk.from_node
+    return None
+
+
+def recolor_fabric(mat, target_hex, lo=0.04, hi=0.42, sat_max=0.14):
+    """Clareia só o tecido liso (pixels neutros escuros) para o tom alvo, mantendo a trama."""
+    import numpy as np
+    node = _image_of(mat)
+    if not node:
+        return
+    img = node.image
+    w, h = img.size
+    a = np.array(img.pixels[:], dtype=np.float32).reshape(h, w, 4)
+    rgb = a[..., :3]
+    l = rgb @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+    sat = rgb.max(-1) - rgb.min(-1)
+    mask = (l > lo) & (l < hi) & (sat < sat_max)
+    med = float(np.median(l[mask])) if mask.any() else 0.2
+    tgt = np.array(B.srgb(target_hex), dtype=np.float32)
+    rel = np.clip(l / med, 0.4, 1.8) ** 0.7
+    rgb[mask] = (tgt[None, :] * rel[mask][:, None])
+    a[..., :3] = np.clip(rgb, 0, 1)
+    new = bpy.data.images.new(img.name + '_linho', w, h, alpha=True)
+    new.pixels[:] = a.ravel()
+    path = os.path.join(B.TEX, f'{mat.name.split(".")[0]}_linho_{target_hex.lstrip("#")}.png')
+    new.filepath_raw = path
+    new.file_format = 'PNG'
+    new.save()
+    bpy.data.images.remove(new)
+    node.image = bpy.data.images.load(path, check_existing=True)
+    node.image.colorspace_settings.name = img.colorspace_settings.name
+
+
+def fiber_sheen(mat, w=0.6):
+    b = mat.node_tree.nodes.get('Principled BSDF')
+    if b:
+        # Tecido não é metal: alguns modelos trazem o canal metálico do glTF trocado/alto.
+        for lk in list(mat.node_tree.links):
+            if lk.to_socket == b.inputs['Metallic']:
+                mat.node_tree.links.remove(lk)
+        b.inputs['Metallic'].default_value = 0.0
+        b.inputs['Sheen Weight'].default_value = w
+        b.inputs['Sheen Roughness'].default_value = 0.6
+
+
+def appliance_steel():
+    """Inox escovado procedural (sem depender das UVs do modelo): escovação vertical sutil."""
+    if 'steel_appliance' in B.MATS:
+        return B.MATS['steel_appliance']
+    m = B.make_mat('steel_appliance', base=(0.56, 0.56, 0.57), roughness=0.22, metallic=1.0)
+    nt = m.node_tree
+    b = nt.nodes['Principled BSDF']
+    b.inputs['Anisotropic'].default_value = 0.5
+    tc = nt.nodes.new('ShaderNodeTexCoord')
+    mp = nt.nodes.new('ShaderNodeMapping')
+    mp.inputs['Scale'].default_value = (1400, 1400, 12)
+    nz = nt.nodes.new('ShaderNodeTexNoise')
+    nz.inputs['Scale'].default_value = 1.0
+    nz.inputs['Detail'].default_value = 2.0
+    mr = nt.nodes.new('ShaderNodeMapRange')
+    mr.inputs['To Min'].default_value = 0.19
+    mr.inputs['To Max'].default_value = 0.25
+    big = nt.nodes.new('ShaderNodeTexNoise')
+    big.inputs['Scale'].default_value = 4.0
+    mix = nt.nodes.new('ShaderNodeMath')
+    mix.operation = 'MULTIPLY_ADD'
+    mix.inputs[1].default_value = 0.04
+    nt.links.new(tc.outputs['Object'], mp.inputs['Vector'])
+    nt.links.new(mp.outputs['Vector'], nz.inputs['Vector'])
+    nt.links.new(nz.outputs['Fac'], mr.inputs['Value'])
+    nt.links.new(tc.outputs['Object'], big.inputs['Vector'])
+    nt.links.new(big.outputs['Fac'], mix.inputs[0])
+    nt.links.new(mr.outputs['Result'], mix.inputs[2])
+    nt.links.new(mix.outputs['Value'], b.inputs['Roughness'])
+    return m
+
+
+def sofa_model():
+    it = B.item('sofa')
+    x0, y0, x1, y1 = it['rect']
+    W, D = abs(y1 - y0), abs(x1 - x0)
+    ob = M.import_model('sofa', height=1.0, coll=B.coll('FURN'))
+    s = W / ob['dims'][1]  # escala uniforme pela largura da vaga (1,44 m)
+    ob.data.transform(Matrix.Diagonal((s, s, s, 1)))
+    ob['dims'] = [round(d * s, 3) for d in ob['dims']]
+    for mat in ob.data.materials:
+        recolor_fabric(mat, '#aaa69e')
+        fiber_sheen(mat)
+    ob.rotation_mode = 'XYZ'
+    ob.rotation_euler = (0, 0, B.FACING[it['facing']])
+    ob.location = V((x0 + x1) / 2, (y0 + y1) / 2, 0)
+    ob['lightmap'] = 'furn'
+    print('[modelo] sofá', ob['dims'], 'vaga', round(D, 3), round(W, 3), flush=True)
+    return ob
+
+
+def fridge_model():
+    old = bpy.data.objects.get('MOV_geladeira')
+    if old:
+        bpy.data.objects.remove(old)
+    fr = B.item('geladeira')
+    x0, y0, x1, y1 = fr['rect']
+    D, W = abs(x1 - x0), abs(y1 - y0)
+    ob = M.import_model('geladeira', size=(D - 0.04, W - 0.02, fr['z'][1]), coll=B.coll('FURN'))
+    st = appliance_steel()
+    for i, mat in enumerate(ob.data.materials):
+        if mat and mat.name.split('.')[0] in ('Material', 'Puerta_Refri'):
+            ob.data.materials[i] = st
+    ob.rotation_mode = 'XYZ'
+    ob.location = V((x0 + x1) / 2 - 0.01, (y0 + y1) / 2, 0)
+    ob['lightmap'] = 'furn'
+    print('[modelo] geladeira', ob['dims'], 'escala', ob['scale_applied'], flush=True)
+    return ob
+
+
+def chair_model(name):
+    ob = M.import_model('cadeira', height=0.84, coll=B.coll('FURN'))
+    ob.name = name
+    for mat in ob.data.materials:
+        if 'fabric' in mat.name:
+            fiber_sheen(mat, 0.5)
+    return ob
+
+
+def cylinder_uv(ob, tile):
+    """UV cilíndrica (veio ao longo do comprimento) para pés torneados."""
+    me = ob.data
+    uv = me.uv_layers.active or me.uv_layers.new()
+    cx = sum(v.co.x for v in me.vertices) / len(me.vertices)
+    cy = sum(v.co.y for v in me.vertices) / len(me.vertices)
+    for poly in me.polygons:
+        angs = []
+        for li in poly.loop_indices:
+            co = me.vertices[me.loops[li].vertex_index].co
+            angs.append(math.atan2(co.y - cy, co.x - cx))
+        ref = angs[0]
+        for li, a in zip(poly.loop_indices, angs):
+            if a - ref > math.pi:
+                a -= 2 * math.pi
+            elif ref - a > math.pi:
+                a += 2 * math.pi
+            co = me.vertices[me.loops[li].vertex_index].co
+            uv.data[li].uv = (a * 0.03 / tile, co.z / tile)
+
+
 def decor_pro():
     # Livros sobre o rack, junto aos vasos (book: rack com objetos).
     books_stack(((281 + 316) / 2 / B.PX - 42 / B.PX, (455 - 318) / B.PX), 0.52, n=3, rot=0.05, name='DEC_livros_rack')
@@ -715,6 +881,11 @@ CAMERAS = {
     # Câmeras de conferência para a navegação livre (ângulos não favoráveis / de perto).
     'conf-sofa-lateral': dict(eye=(1.75, 3.1, 0.9), target=(1.95, 1.8, 0.45), lens=30, shift_y=0.0, pitch=True),
     'conf-cozinha-perto': dict(eye=(1.25, 3.5, 1.6), target=(0.35, 2.6, 0.95), lens=28, shift_y=0.0, pitch=True),
+    # Rodada 3: conferência dos modelos substituídos e dos detalhes corrigidos.
+    'conf-geladeira': dict(eye=(1.9, 4.75, 1.45), target=(0.5, 3.97, 1.0), lens=26, shift_y=0.0, pitch=True),
+    'conf-cuba': dict(eye=(0.95, 2.45, 1.5), target=(0.36, 2.25, 0.8), lens=30, shift_y=0.0, pitch=True),
+    'conf-cadeira': dict(eye=(1.85, 4.2, 1.15), target=(2.85, 4.95, 0.5), lens=30, shift_y=0.0, pitch=True),
+    'conf-sofa-frente': dict(eye=(3.05, 2.8, 1.2), target=(1.95, 2.2, 0.5), lens=22, shift_y=0.0, pitch=True),
 }
 
 
@@ -748,10 +919,10 @@ def render(name):
     sc.cycles.adaptive_threshold = 0.01
     sc.cycles.use_denoising = True
     sc.cycles.denoiser = 'OPENIMAGEDENOISE'
-    sc.cycles.max_bounces = 12
+    sc.cycles.max_bounces = 16
     sc.cycles.diffuse_bounces = 6
-    sc.cycles.glossy_bounces = 4
-    sc.cycles.transmission_bounces = 8
+    sc.cycles.glossy_bounces = 8
+    sc.cycles.transmission_bounces = 16
     sc.cycles.transparent_max_bounces = 16
     sc.cycles.blur_glossy = 0.5
     sc.view_settings.view_transform = 'AgX'
@@ -781,13 +952,15 @@ def main():
     B.make_mat('chair_fabric', color=B.processed('chair_fabric_grey', B.tex_path('acg', 'Fabric045', 'Color'),
                                                   B.recolor(B.srgb('#a9a49c'), 0.7)),
                normal=B.tex_path('acg', 'Fabric045', 'NormalGL'), nstrength=0.8, roughness=0.95, tile=0.18)
+    B.TILE['granite'] = 0.35  # UV do tampo gerada no build_kitchen com esta escala
     refine_materials()
     bsdf('chair_fabric').inputs['Sheen Weight'].default_value = 0.6
     B.build_architecture()
     B.build_rack_tv_art()
     B.build_kitchen()
     B.build_service()
-    sofa_pro()
+    fridge_model()
+    sofa_model()
     rug_pro()
     dining_pro()
     curtains()

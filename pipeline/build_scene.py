@@ -737,6 +737,58 @@ def build_table():
     o['lightmap'] = 'furn'
 
 
+def sink_basin(x0, y0, x1, y1, zb, zt, r=0.03, wall=0.0012):
+    """Cuba de embutir em inox: bacia com cantos internos arredondados, borda sobre o
+    granito e ralo (substitui as placas planas, que não davam leitura de profundidade)."""
+    bm = bmesh.new()
+    a0, b0, a1, b1 = (*V(x0, y0, 0).xy, *V(x1, y1, 0).xy)
+    lo_x, hi_x, lo_y, hi_y = min(a0, a1), max(a0, a1), min(b0, b1), max(b0, b1)
+    vs = [bm.verts.new((x, y, z)) for z in (zb, zt - 0.03 + 0.002) for (x, y) in ((lo_x, lo_y), (hi_x, lo_y), (hi_x, hi_y), (lo_x, hi_y))]
+    bm.faces.new(vs[3::-1])
+    for i in range(4):
+        j = (i + 1) % 4
+        bm.faces.new([vs[i], vs[j], vs[4 + j], vs[4 + i]])
+    edges = [e for e in bm.edges if not all(abs(v.co.z - (zt - 0.028)) < 1e-4 for v in e.verts)]
+    bmesh.ops.bevel(bm, geom=edges, offset=r, segments=5, affect='EDGES', profile=0.5)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    for f in bm.faces:
+        f.normal_flip()  # normais para dentro da bacia (lado visível)
+    world_uv(bm, TILE.get('steel', 0.5))
+    basin = mesh_obj('cuba_bacia', bm, 'steel', 'FURN')
+    sol = basin.modifiers.new('esp', 'SOLIDIFY')
+    sol.thickness = wall
+    bpy.context.view_layer.objects.active = basin
+    for o in bpy.context.view_layer.objects:
+        o.select_set(o == basin)
+    bpy.ops.object.modifier_apply(modifier=sol.name)
+    for p_ in basin.data.polygons:
+        p_.use_smooth = True
+    # Borda (aba) de 1 cm apoiada sobre o tampo, com cantos arredondados.
+    cx, cy = (lo_x + hi_x) / 2, (lo_y + hi_y) / 2
+    rim = []
+    t = 0.012
+    for (a, b, c, e) in ((lo_x - t, lo_y - t, hi_x + t, lo_y), (lo_x - t, hi_y, hi_x + t, hi_y + t),
+                         (lo_x - t, lo_y, lo_x, hi_y), (hi_x, lo_y, hi_x + t, hi_y)):
+        bm = bmesh.new()
+        bmesh.ops.create_cube(bm, size=1.0)
+        bmesh.ops.scale(bm, vec=(c - a, e - b, 0.003), verts=bm.verts)
+        bmesh.ops.translate(bm, vec=((a + c) / 2, (b + e) / 2, zt + 0.0015), verts=bm.verts)
+        world_uv(bm, TILE.get('steel', 0.5))
+        rim.append(mesh_obj('cuba_aba', bm, 'steel', 'FURN'))
+    # Ralo: anel inox com centro escuro.
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=32, radius1=0.045, radius2=0.045, depth=0.003)
+    bmesh.ops.translate(bm, vec=(cx, cy, zb + 0.003), verts=bm.verts)
+    world_uv(bm, 0.2)
+    ralo = mesh_obj('cuba_ralo', bm, 'steel', 'FURN')
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=32, radius1=0.028, radius2=0.028, depth=0.003)
+    bmesh.ops.translate(bm, vec=(cx, cy, zb + 0.0045), verts=bm.verts)
+    world_uv(bm, 0.2)
+    furo = mesh_obj('cuba_ralo_furo', bm, 'black_satin', 'FURN')
+    return [basin, ralo, furo] + rim
+
+
 def build_kitchen():
     base = item('bancada')
     x0, y0, x1, y1 = base['rect']  # x0 = face da parede; x1 = frente
@@ -744,9 +796,20 @@ def build_kitchen():
     top_z = 0.9
     # Rodapé recuado e corpo.
     parts.append(plan_box('coz_rodape', 'black_satin', x0, y0, x1 - 0.06, y1, 0, 0.1))
-    parts.append(plan_box('coz_corpo', 'lacquer_greige', x0, y0, x1 - 0.022, y1, 0.1, top_z - 0.03))
+    corpo = plan_box('coz_corpo', 'lacquer_greige', x0, y0, x1 - 0.022, y1, 0.1, top_z - 0.03)
+    parts.append(corpo)
     # Módulos: pia (2 portas) | forno + gaveta (sob o cooktop).
     sink_c = (455 + 545) / 2 / PX - 318 / PX
+    # Vão da cuba no corpo do gabinete (sem ele, o topo do corpo fechava a bacia por baixo do tampo).
+    vao = plan_box('vao_cuba', 'lacquer_greige', x0 + 0.075, sink_c - 0.245, x0 + 0.485, sink_c + 0.245, top_z - 0.26, top_z + 0.05)
+    mod = corpo.modifiers.new('vao', 'BOOLEAN')
+    mod.object = vao
+    mod.operation = 'DIFFERENCE'
+    bpy.context.view_layer.objects.active = corpo
+    for o in bpy.context.view_layer.objects:
+        o.select_set(o == corpo)
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.data.objects.remove(vao)
     cook_c = (552 + 603) / 2 / PX - 318 / PX
     split = (548 - 318) / PX
     fronts = [(y0 + 0.003, (y0 + split) / 2 - 0.0015), ((y0 + split) / 2 + 0.0015, split - 0.002)]
@@ -771,9 +834,7 @@ def build_kitchen():
     bpy.data.objects.remove(cut)
     # Cuba inox (paredes internas).
     cx0, cx1, cy0, cy1, d = x0 + 0.08, x0 + 0.48, sink_c - 0.24, sink_c + 0.24, 0.19
-    steel.append(plan_box('cuba_fundo', 'steel', cx0, cy0, cx1, cy1, top_z - 0.03 - d, top_z - 0.03 - d + 0.004))
-    for (a, b, c, e) in ((cx0, cy0, cx0 + 0.004, cy1), (cx1 - 0.004, cy0, cx1, cy1), (cx0, cy0, cx1, cy0 + 0.004), (cx0, cy1 - 0.004, cx1, cy1)):
-        steel.append(plan_box('cuba_parede', 'steel', a, b, c, e, top_z - 0.03 - d, top_z - 0.03))
+    steel += sink_basin(cx0, cy0, cx1, cy1, top_z - 0.03 - d, top_z)
     # Torneira gourmet (tubo curvo).
     curve = bpy.data.curves.new('torneira', 'CURVE')
     curve.dimensions = '3D'
