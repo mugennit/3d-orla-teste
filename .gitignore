@@ -7,3 +7,4 @@ dist
 .env*
 !.env.example
 .cache/
+__pycache__/
