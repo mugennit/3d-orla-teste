@@ -43,6 +43,9 @@ def to_px(x, y):
 
 
 occ = np.zeros((H_, W_), np.uint8)
+occ_nochair = np.zeros((H_, W_), np.uint8)   # para medir o uso: sem as cadeiras
+masks = {}                                    # máscara de cada móvel na faixa 0,05–0,65 m
+bounds = {}
 dg = bpy.context.evaluated_depsgraph_get()
 furn_hulls = {}
 for ob in bpy.context.scene.objects:
@@ -72,6 +75,17 @@ for ob in bpy.context.scene.objects:
         pts = [np.round(pp).astype(np.int32) for pp in polys]
         cv2.fillPoly(occ, pts, 255)
         cv2.polylines(occ, pts, True, 255, 1)
+        if not ob.name.startswith('MOV_cadeira'):
+            cv2.fillPoly(occ_nochair, pts, 255)
+            cv2.polylines(occ_nochair, pts, True, 255, 1)
+    if ob.name.startswith(('MOV_', 'AST_', 'DEC_')):
+        bpolys = [np.round(np.array([to_px(px[i], py[i]) for i in list(p.vertices)], np.float32)).astype(np.int32)
+                  for p in me.polygons if pz[list(p.vertices)].max() >= Z_LO and pz[list(p.vertices)].min() <= 0.65]
+        if bpolys:
+            mk = np.zeros((H_, W_), np.uint8)
+            cv2.fillPoly(mk, bpolys, 1)
+            masks[ob.name] = mk
+        bounds[ob.name] = tuple(float(v) for v in (px.min(), py.min(), px.max(), py.max()))
     if ob.name.startswith('MOV_') or ob.name.startswith('AST_'):
         bi = sorted(band_idx)
         if len(bi) >= 3:
@@ -138,13 +152,14 @@ for name, (a, b) in ROUTES.items():
     cv2.line(vis, tuple(int(v) for v in to_px(*a)), tuple(int(v) for v in to_px(*b)), (200, 120, 0), 1)
 
 names = sorted(furn_hulls)
-for i, n1 in enumerate(names):
-    for n2 in names[i + 1:]:
+mnames = sorted(masks)
+for i, n1 in enumerate(mnames):
+    for n2 in mnames[i + 1:]:
         if {n1, n2} == {'MOV_cozinha', 'MOV_cozinha_metais'}:
             continue  # forno/cooktop embutidos no gabinete (intencional)
-        inter = furn_hulls[n1].intersection(furn_hulls[n2]).area
-        if inter > 1e-4:
-            report['colisoes'].append(dict(a=n1, b=n2, area_cm2=round(inter * 1e4, 1)))
+        inter = int((masks[n1] & masks[n2]).sum())
+        if inter >= 4:  # ≥ 4 cm² de sobreposição real (pés, assentos, pernas)
+            report['colisoes'].append(dict(a=n1, b=n2, area_cm2=inter))
 
 # Folgas específicas (casco a casco / casco a obstáculo).
 def gap(n1, n2):
@@ -174,6 +189,36 @@ for c in ('MOV_cadeira-1', 'MOV_cadeira-2', 'MOV_cadeira-3', 'MOV_cadeira-4'):
                 break
             free_m += RES
         report['folgas'][f'{c[4:]}: livre atrás do encosto'] = round(free_m, 2)
+# USO REAL DA MESA: distância livre da borda do tampo até o obstáculo atrás de cada lugar
+# (sem as cadeiras). Referências de projeto: ≥ 0,75 m para afastar a cadeira e sentar;
+# ≥ 0,90 m para sentar com conforto e alguém passar atrás com dificuldade; ≥ 1,10 m para
+# passar atrás de quem está sentado.
+if 'MOV_mesa' in bounds:
+    tx0, ty0, tx1, ty1 = bounds['MOV_mesa']
+    report['uso_mesa'] = {'tampo_x_m': [round(tx0, 3), round(tx1, 3)]}
+    for c in ('MOV_cadeira-1', 'MOV_cadeira-2', 'MOV_cadeira-3', 'MOV_cadeira-4'):
+        if c not in bounds:
+            continue
+        cy = (bounds[c][1] + bounds[c][3]) / 2
+        cx = (bounds[c][0] + bounds[c][2]) / 2
+        side = -1 if cx < (tx0 + tx1) / 2 else 1
+        edge = tx0 if side < 0 else tx1
+        clear = []
+        for dy in np.arange(-0.2, 0.21, 0.05):
+            x, d = edge + side * 0.02, 0.02
+            while 0 < x < X1 - RES:
+                ix, iy = int(to_px(x, cy + dy)[0]), int(to_px(x, cy + dy)[1])
+                if occ_nochair[iy, ix]:
+                    break
+                x += side * RES
+                d += RES
+            clear.append(float(d))
+        m = round(min(clear), 2)
+        sit = 'confortável' if m >= 0.90 else ('funcional (mínimo)' if m >= 0.75 else 'INSUFICIENTE para sentar')
+        report['uso_mesa'][c[4:]] = dict(borda_ate_obstaculo_m=m, situacao=sit)
+    # Porta de entrada: giro da folha (0,85 m) não modelado; pior caso = faixa x ≤ 0,10 + 0,85 m.
+    report['uso_mesa']['nota_porta_entrada'] = (
+        'lugares a oeste: borda da mesa a {:.2f} m da linha de giro da porta (x = 0,95 m)'.format(tx0 - 0.95))
 for n in names:
     b = furn_hulls[n].bounds
     report.setdefault('dimensoes_planta_m', {})[n] = [round(b[2] - b[0], 3), round(b[3] - b[1], 3)]

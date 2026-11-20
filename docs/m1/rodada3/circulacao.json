@@ -37,6 +37,29 @@
   "cadeira-3: livre atrás do encosto": 0.25,
   "cadeira-4: livre atrás do encosto": 0.25
  },
+ "uso_mesa": {
+  "tampo_x_m": [
+   1.828,
+   2.641
+  ],
+  "cadeira-1": {
+   "borda_ate_obstaculo_m": 1.71,
+   "situacao": "confortável"
+  },
+  "cadeira-2": {
+   "borda_ate_obstaculo_m": 0.95,
+   "situacao": "confortável"
+  },
+  "cadeira-3": {
+   "borda_ate_obstaculo_m": 0.78,
+   "situacao": "funcional (mínimo)"
+  },
+  "cadeira-4": {
+   "borda_ate_obstaculo_m": 0.78,
+   "situacao": "funcional (mínimo)"
+  },
+  "nota_porta_entrada": "lugares a oeste: borda da mesa a 0.88 m da linha de giro da porta (x = 0,95 m)"
+ },
  "dimensoes_planta_m": {
   "MOV_cadeira-1": [
    0.481,

@@ -31,6 +31,11 @@ RES = tuple(int(v) for v in (ARGS[ARGS.index('--res') + 1] if '--res' in ARGS el
 OUT = os.path.join(B.REPO, '.cache', 'master')
 WINDOW_SKY = float(ARGS[ARGS.index('--window') + 1]) if '--window' in ARGS else 0.45
 EXPOSURE = float(ARGS[ARGS.index('--exposure') + 1]) if '--exposure' in ARGS else 1.3
+# Jantar (rodada 3c): deslocamento da mesa em x (m, negativo = oeste) e cadeiras recolhidas.
+MESA_DX = float(ARGS[ARGS.index('--mesa-dx') + 1]) if '--mesa-dx' in ARGS else 0.0  # testado −0,10 e −0,15: piora a entrada
+CHAIRS_TUCKED = '--cadeiras-afastadas' not in ARGS
+TUCK = 0.04  # quanto a frente do assento entra sob o tampo (limitado pelos pés da mesa)
+BLEND_NAME = ARGS[ARGS.index('--blend') + 1] if '--blend' in ARGS else 'sala-cozinha.blend'
 os.makedirs(OUT, exist_ok=True)
 V = B.V
 H = B.H
@@ -540,7 +545,12 @@ def dining_pro():
         ob = chair_model(f'MOV_{cid}')
         ob.rotation_mode = 'XYZ'
         ob.rotation_euler = (0, 0, B.FACING[c['facing']])
-        ob.location = V(c['at'][0], c['at'][1], 0)
+        cx = c['at'][0]
+        if CHAIRS_TUCKED:
+            # Recolhida: frente do assento TUCK sob o tampo, encosto para fora (posição de "mesa posta").
+            half = ob['dims'][0] / 2
+            cx = (x0 + TUCK - half) if c['facing'] == '+x' else (x1 - TUCK + half)
+        ob.location = V(cx, c['at'][1], 0)
         ob['lightmap'] = 'furn'
 
 
@@ -975,12 +985,27 @@ def render(name):
     print(f'[render] {sc.render.filepath}', flush=True)
 
 
+def shift_dining(dx):
+    """Desloca o conjunto de jantar (mesa, cadeiras, pendente e objetos da mesa) em x, só
+    na cena ilustrativa — o layout auditado (sala-cozinha.ts) e a arquitetura não mudam."""
+    if not dx:
+        return
+    for it in B.L['zoneItems']:
+        if it['id'] == 'mesa':
+            r = it['rect']
+            it['rect'] = [r[0] + dx, r[1], r[2] + dx, r[3]]
+        elif it['id'] in ('cadeira-1', 'cadeira-2', 'cadeira-3', 'cadeira-4', 'pendente', 'bowl-mesa'):
+            it['at'] = [it['at'][0] + dx, it['at'][1]]
+    print(f'[jantar] conjunto deslocado {dx:+.2f} m em x; cadeiras recolhidas={CHAIRS_TUCKED}', flush=True)
+
+
 def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     sc = bpy.context.scene
     sc.unit_settings.system = 'METRIC'
     sc.render.engine = 'CYCLES'
     sc.cycles.device = 'CPU'
+    shift_dining(MESA_DX)
     B.build_materials()
     B.make_mat('chair_fabric', color=B.processed('chair_fabric_grey', B.tex_path('acg', 'Fabric045', 'Color'),
                                                   B.recolor(B.srgb('#a9a49c'), 0.7)),
@@ -1002,7 +1027,9 @@ def main():
     B.L['zoneItems'] = [i for i in B.L['zoneItems'] if i.get('asset') != 'dining_chair_02']
     B.place_assets()
     interior_lighting()
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, 'sala-cozinha.blend'))
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, BLEND_NAME))
+    if '--no-render' in ARGS:
+        return
     which = [a for a in ARGS if a in CAMERAS] or ['sala-cozinha']
     for name in which:
         render(name)
