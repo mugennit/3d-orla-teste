@@ -27,7 +27,8 @@ MODELS = {
                  front='-x', changes='escala para 1,44 m; tecido clareado para linho cinza; brilho de fibra'),
     'geladeira': dict(uid='930a1ad92ee54b29b718de69f0cd209b', path=None, front='+y',
                       remove=('Foto', 'Pin', 'To Do List'),
-                      changes='retirados ímãs, fotos e lista da porta; escala para a vaga da planta; inox escovado'),
+                      changes='retirados ímãs, fotos e lista da porta; escala para a vaga da planta; inox escovado',
+                      used=False),  # avaliada na rodada 3; substituída por modelo próprio (decisão do cliente)
     'cadeira': dict(uid='a5aa4613bc5b46baba4d9254d6c9c038', path=None, front='-y',
                     changes='escala para 0,84 m de altura; brilho de fibra'),
 }
@@ -55,6 +56,9 @@ def fetch():
     cred_path = os.path.join(REPO, '.cache', 'assets', 'credits.json')
     credits = json.load(open(cred_path)) if os.path.exists(cred_path) else {}
     for key, m in MODELS.items():
+        if not m.get('used', True):
+            credits.pop(f'Sketchfab:{m["uid"]}', None)
+            continue
         info = _api(m['uid'])
         lic = (info.get('license') or {})
         slug = lic.get('slug')

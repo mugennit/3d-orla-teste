@@ -12,6 +12,15 @@ Fonte dos arquivos: espelho público do **Objaverse** (`allenai/objaverse`, Hugg
 
 Texto de crédito sugerido para o tour: *"Sofa" por katjagricishina, "Fridge" por CARTE 3D, "Dining_chair_241120" por 3D Error 404 (Sketchfab), licença CC BY 4.0, modificados.*
 
+## Geladeira: modelo próprio (decisão do cliente)
+O candidato "Fridge" (CARTE 3D, CC-BY) foi testado e **substituído** por modelo próprio
+(`fridge_model()` em `pipeline/master_scene.py`), de desenho contemporâneo inspirado em
+refrigeradores frost-free de 2 portas do mercado: portas retas de 6 cm com fresta de
+6 mm, freezer em cima, vedação de borracha, puxadores em barra de inox afastados 3 cm, capa
+da dobradiça, rodapé com grade de ventilação e inox escovado vertical. Medidas de
+0,64 × 0,66 × 1,82 m, na vaga da planta, com folga de ventilação. Sem logotipo, painel ou
+dispenser. Como não é mais usado, o crédito do modelo da CARTE 3D saiu de `credits.json`.
+
 ## Candidatos avaliados (todos CC-BY 4.0, conferidos na API do Sketchfab)
 
 | Peça | # | Modelo | Autor | Faces | Situação |

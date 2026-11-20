@@ -757,21 +757,54 @@ def sofa_model():
 
 
 def fridge_model():
+    """Geladeira própria, desenho contemporâneo (duas portas, freezer em cima, inox escovado).
+    Referência: refrigeradores frost-free de 2 portas do mercado (≈ 0,66 × 0,64 × 1,82 m), sem
+    logotipo, painel ou dispenser. Ocupa a vaga da planta (0,66 × 0,68 m) com folga de
+    ventilação atrás e nas laterais."""
     old = bpy.data.objects.get('MOV_geladeira')
     if old:
         bpy.data.objects.remove(old)
     fr = B.item('geladeira')
-    x0, y0, x1, y1 = fr['rect']
-    D, W = abs(x1 - x0), abs(y1 - y0)
-    ob = M.import_model('geladeira', size=(D - 0.04, W - 0.02, fr['z'][1]), coll=B.coll('FURN'))
+    X0, Y0, X1, Y1 = fr['rect']
+    H_ = 1.82
     st = appliance_steel()
-    for i, mat in enumerate(ob.data.materials):
-        if mat and mat.name.split('.')[0] in ('Material', 'Puerta_Refri'):
-            ob.data.materials[i] = st
-    ob.rotation_mode = 'XYZ'
-    ob.location = V((x0 + x1) / 2 - 0.01, (y0 + y1) / 2, 0)
+    if 'rubber' not in B.MATS:
+        B.make_mat('rubber', base=B.lin('#202124'), roughness=0.7)
+        B.make_mat('grille', base=B.lin('#2a2b2d'), roughness=0.55)
+    bx0, front = X0 + 0.02, X1          # 2 cm de ventilação atrás; frente das portas no limite da vaga
+    door_t = 0.06
+    bx1 = front - door_t - 0.004       # face frontal do gabinete
+    y0, y1 = Y0 + 0.01, Y1 - 0.01      # 66 cm de largura, 1 cm de folga de cada lado
+    P = []
+    # Gabinete (laterais e topo em inox, arestas levemente arredondadas).
+    P.append(B.plan_box('gel_gabinete', 'steel_appliance', bx0, y0, bx1, y1, 0.0, H_, bevel=0.006, segments=3))
+    # Vedação de borracha visível entre gabinete e portas.
+    P.append(B.plan_box('gel_vedacao', 'rubber', bx1 - 0.002, y0 + 0.008, bx1 + 0.006, y1 - 0.008, 0.09, H_ - 0.008))
+    # Portas retas: refrigerador embaixo, freezer em cima, fresta de 6 mm.
+    split = 1.30
+    doors = [('gel_porta_refrig', 0.085, split - 0.003), ('gel_porta_freezer', split + 0.003, H_ - 0.004)]
+    for n, z0, z1 in doors:
+        P.append(B.plan_box(n, 'steel_appliance', front - door_t, y0 + 0.002, front, y1 - 0.002, z0, z1, bevel=0.009, segments=4))
+    # Rodapé com grade de ventilação (recuado 1,5 cm).
+    P.append(B.plan_box('gel_rodape', 'grille', bx1 - 0.03, y0 + 0.02, bx1 + 0.045, y1 - 0.02, 0.012, 0.08, bevel=0.003))
+    for k in range(7):
+        z = 0.02 + k * 0.0085
+        P.append(B.plan_box('gel_grade', 'rubber', bx1 + 0.045, y0 + 0.05, bx1 + 0.047, y1 - 0.05, z, z + 0.004))
+    # Puxadores em barra (perfil 25 × 20 mm, afastados 3 cm da porta), do lado oposto às dobradiças.
+    hy = y1 - 0.055
+    for z0, z1 in ((split + 0.04, split + 0.34), (split - 0.46, split - 0.06)):
+        P.append(B.plan_box('gel_puxador', 'steel_appliance', front + 0.03, hy - 0.0125, front + 0.05, hy + 0.0125, z0, z1, bevel=0.007, segments=4))
+        for zz in (z0 + 0.025, z1 - 0.025):
+            P.append(B.plan_box('gel_puxador_base', 'steel_appliance', front - 0.002, hy - 0.009, front + 0.032, hy + 0.009, zz - 0.012, zz + 0.012,
+                                bevel=0.004, segments=3))
+    # Capa da dobradiça superior (lado oposto ao puxador).
+    P.append(B.plan_box('gel_dobradica', 'grille', front - door_t + 0.004, y0 + 0.004, front - 0.006, y0 + 0.05, H_ - 0.004, H_ + 0.008, bevel=0.003))
+    for o in P:
+        for poly in o.data.polygons:
+            poly.use_smooth = False
+    ob = B.join(P, 'MOV_geladeira')
     ob['lightmap'] = 'furn'
-    print('[modelo] geladeira', ob['dims'], 'escala', ob['scale_applied'], flush=True)
+    print('[modelo] geladeira própria', round(front - bx0, 3), round(y1 - y0, 3), H_, flush=True)
     return ob
 
 
@@ -882,7 +915,7 @@ CAMERAS = {
     'conf-sofa-lateral': dict(eye=(1.75, 3.1, 0.9), target=(1.95, 1.8, 0.45), lens=30, shift_y=0.0, pitch=True),
     'conf-cozinha-perto': dict(eye=(1.25, 3.5, 1.6), target=(0.35, 2.6, 0.95), lens=28, shift_y=0.0, pitch=True),
     # Rodada 3: conferência dos modelos substituídos e dos detalhes corrigidos.
-    'conf-geladeira': dict(eye=(1.9, 4.75, 1.45), target=(0.5, 3.97, 1.0), lens=26, shift_y=0.0, pitch=True),
+    'conf-geladeira': dict(eye=(2.45, 5.1, 1.5), target=(0.45, 3.9, 1.0), lens=26, shift_y=0.0, pitch=True),
     'conf-cuba': dict(eye=(0.95, 2.45, 1.5), target=(0.36, 2.25, 0.8), lens=30, shift_y=0.0, pitch=True),
     'conf-cadeira': dict(eye=(1.85, 4.2, 1.15), target=(2.85, 4.95, 0.5), lens=30, shift_y=0.0, pitch=True),
     'conf-sofa-frente': dict(eye=(3.05, 2.8, 1.2), target=(1.95, 2.2, 0.5), lens=22, shift_y=0.0, pitch=True),
