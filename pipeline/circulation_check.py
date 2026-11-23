@@ -35,7 +35,7 @@ RES = 0.01  # m por pixel
 X0, Y0, X1, Y1 = 0.0, 0.0, 3.6, 5.9  # sala, cozinha, jantar, varanda (planta, m)
 Z_LO, Z_HI = 0.05, 1.50
 W_, H_ = int((X1 - X0) / RES), int((Y1 - Y0) / RES)
-SKIP = ('tapete', 'rug', 'piso', 'floor', 'teto', 'ceiling', 'LUZ', 'sky', 'CEU', 'Plane', 'VIDROS', 'cortina')
+SKIP = ('tapete', 'rug', 'piso', 'floor', 'teto', 'ceiling', 'LUZ', 'sky', 'CEU', 'Plane', 'VIDROS', 'cortina', 'ENTORNO_')
 
 
 def to_px(x, y):

@@ -1026,7 +1026,16 @@ def entrance_hall():
         B.plan_box('hall_lado_a', 'paint', X0, ya - 0.05, xo, ya, 0.0, 2.5),
         B.plan_box('hall_lado_b', 'paint', X0, yb, xo, yb + 0.05, 0.0, 2.5),
     ]
-    B.join(parts, 'ENTORNO_hall_entrada')
+    hall = B.join(parts, 'ENTORNO_hall_entrada')
+    # Separado da geometria oficial: coleção própria, sem lightmap/colisão e marcado como provisório.
+    # (As colisões do tour vêm do layout auditado, não das malhas; circulation_check.py ignora ENTORNO_.)
+    c = B.coll('ENTORNO_provisorio')
+    for col in list(hall.users_collection):
+        col.objects.unlink(hall)
+    c.objects.link(hall)
+    hall['oficial'] = False
+    hall['provisorio'] = 'iluminacao da entrada (rodada 4)'
+    hall['lightmap'] = ''
 
 
 def interior_lighting():
