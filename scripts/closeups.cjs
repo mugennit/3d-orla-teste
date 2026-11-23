@@ -17,7 +17,7 @@ const W = 960;
 const H = 540;
 const POSES = [
   ['sofá e quadro', '2.9,1.8,1.5,270,-8,24'],
-  ['sofá de perto', '2.55,2.35,1.05,245,-28,26'],
+  ['sofá de perto', '2.7,2.4,1.05,262,-25,26'],
   ['mesa e cadeiras', '2.2,4.25,1.35,180,-32,24'],
   ['bancada de perto', '1.05,3.0,1.6,270,-38,24'],
   ['geladeira de perto', '1.35,3.95,1.6,270,-12,22'],

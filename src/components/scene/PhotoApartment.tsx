@@ -86,12 +86,18 @@ const LEGACY_MATERIAL_TUNING: Record<string, (m: THREE.MeshStandardMaterial) => 
 function tuneMasterMaterial(m: THREE.MeshStandardMaterial) {
   if (m.userData.masterTuned) return;
   m.userData.masterTuned = true;
+  const phys = m as THREE.MeshPhysicalMaterial;
+  // Verniz (laca, porcelanato, madeira): no Cycles o coat de rugosidade ~0 é suavizado pelo
+  // filtro de brilho e pelos reflexos reais; com uma única sonda de reflexo ele vira espelho nítido.
+  if (phys.isMeshPhysicalMaterial && phys.clearcoat > 0) phys.clearcoatRoughness = Math.max(phys.clearcoatRoughness, 0.14);
+  // Tapete: o relevo da trama era geometria deslocada no Cycles (decimada para o tempo real) → reforço no mapa de normais.
+  if (m.name === 'rug' && m.normalMap) m.normalScale.multiplyScalar(2.2);
   if (m.name === 'voile') {
     m.transparent = true;
-    m.opacity = 0.5;
+    m.opacity = 0.42;
     m.depthWrite = false;
     m.side = THREE.DoubleSide;
-    m.emissive.setRGB(0.55, 0.56, 0.57); // luz do dia atravessando o tecido (não há lightmap nas cortinas)
+    m.emissive.setRGB(0.85, 0.85, 0.84); // luz do dia atravessando o tecido (não há lightmap nas cortinas)
   }
 }
 
