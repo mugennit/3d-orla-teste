@@ -892,7 +892,8 @@ def decor_pro():
     mesa = B.item('mesa')
     x0, y0, x1, y1 = mesa['rect']
     top = mesa['z'][1]
-    base = Vector(V((x0 + x1) / 2 + 0.12, (y0 + y1) / 2 - 0.22, top))
+    # Afastados 11 cm da fruteira (bowl-mesa), que antes encostava no vaso.
+    base = Vector(V((x0 + x1) / 2 + 0.12, (y0 + y1) / 2 - 0.33, top))
     S = 1.4  # mesma escala do arranjo anterior (vasos ≈ 10 × 20 cm)
     # Perfis externos (raio, altura) em m já na escala final: cilíndrico e de bojo suave.
     profiles = [
@@ -932,6 +933,9 @@ def decor_pro():
             ys = [vv.co.y for vv in f.data.vertices]
             f.data.transform(Matrix.Translation(Vector((-(min(xs) + max(xs)) / 2, -(min(ys) + max(ys)) / 2, 0))))
             f.data.transform(Matrix.Diagonal((S, S, S, 1)))
+            # Hastes apoiadas a 1,5 cm do fundo interno do vaso (fundo de 9 mm).
+            zmin = min(vv.co.z for vv in f.data.vertices)
+            f.data.transform(Matrix.Translation(Vector((0, 0, 0.024 - zmin))))
             f.location = c
             f.name = f'DEC_flores_{k + 1}'
 
