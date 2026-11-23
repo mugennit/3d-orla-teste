@@ -181,7 +181,9 @@ def refine_materials():
                lambda x: B.np.clip((x - x.mean(axis=(0, 1))) * 0.55 + x.mean(axis=(0, 1)) * 1.18 + 0.05, 0, 1)))
     b = bsdf('granite')
     b.inputs['Coat Weight'].default_value = 0.5
-    b.inputs['Coat Roughness'].default_value = 0.05
+    # Rodada 4: 0,05 refletia a fita de LED do aéreo como uma linha nítida no tampo (a "faixa clara").
+    # 0,18 = polido real (microrrugosidade): reflexos de janela/LED continuam, mas suaves.
+    b.inputs['Coat Roughness'].default_value = 0.18
     # Revestimento cerâmico vitrificado.
     bsdf('backsplash').inputs['Coat Weight'].default_value = 0.6
     bsdf('backsplash').inputs['Coat Roughness'].default_value = 0.04
