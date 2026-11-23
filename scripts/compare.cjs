@@ -58,7 +58,7 @@ async function stats(buf) {
     await page.waitForFunction(() => !document.querySelector('.loading-overlay'), null, { timeout: 600000 });
     await page.waitForFunction(() => window.__compareReady === true, null, { timeout: 120000 });
     await page.waitForTimeout(2500); // captura do cubemap de reflexos e compilação dos shaders
-    const shot = await page.locator('canvas').screenshot();
+    const shot = await page.screenshot({ clip: { x: 0, y: 0, width: W, height: H }, timeout: 600000 });
     const tourFile = path.join(out, `tour-${name}.png`);
     fs.writeFileSync(tourFile, shot);
     const ref = reference(name);

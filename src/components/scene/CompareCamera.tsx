@@ -52,7 +52,7 @@ export function CompareCamera({ baseUrl }: { baseUrl: string }) {
     camera.projectionMatrix.elements[9] += 2 * (cam.shift_y ?? 0) * aspect;
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
     (window as unknown as { __compareReady?: boolean }).__compareReady = true;
-  }, 1);
+  });
 
   return null;
 }

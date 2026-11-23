@@ -131,6 +131,11 @@ def prepare_scene():
             o['lightmap'] = 'arch'  # recebe luz do bake (vista pela porta), sem colisão no tour
         if o.name.startswith(('DEC_vaso_vidro', 'DEC_flores', 'VIDROS')) or 'cortina' in o.name:
             o['lightmap'] = ''
+        # Decoração pequena (livros, vasos, plantas, fruteira, tábua…): fora do atlas de móveis, onde
+        # virava milhares de ilhas minúsculas e roubava resolução das superfícies grandes. No tour,
+        # recebe a luz do ambiente capturado (irradiância do cubemap).
+        if o.name.startswith('DEC_'):
+            o['lightmap'] = ''
         # Malhas muito densas (tapete com relevo deslocado, plantas): decimação para tempo real.
         # O relevo fino continua no mapa de normais; a silhueta é preservada.
         tris = sum(len(p.vertices) - 2 for p in o.data.polygons)
@@ -171,6 +176,11 @@ def bake_all(meta):
     sc.cycles.diffuse_bounces = 6
     sc.cycles.glossy_bounces = 2
     sc.cycles.transmission_bounces = 8
+    # Sem cáusticas no bake: a luz rebatida por inox/verniz virava manchas e estrias no lightmap
+    # difuso (pareciam reflexos "pintados" na laca e no piso). Os reflexos reais ficam no tempo real.
+    sc.cycles.caustics_reflective = False
+    sc.cycles.caustics_refractive = False
+    sc.cycles.blur_glossy = 1.0
     hidden = [o for o in bpy.data.objects if o.type == 'MESH' and (o.name.startswith(('VIDROS', 'DEC_vaso_vidro')))]
     for o in hidden:
         o.hide_render = True  # vidro não bloqueia a luz no bake

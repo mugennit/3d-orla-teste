@@ -11,5 +11,7 @@ import { furnitureColliders } from './sala-cozinha';
 export const orlaPhotoScene: PhotoSceneConfig & { colliders: Furniture[] } = {
   baseUrl: 'cenas/orla-45m2',
   probe: [2.3, 3.3, 1.3],
+  // Volume da sala integrada à cozinha (planta auditada: Estar/Jantar + Cozinha), piso ao forro.
+  envBox: { rect: [0.1, 1.04, 3.43, 5.76], z: [0, 2.5] },
   colliders: furnitureColliders(),
 };

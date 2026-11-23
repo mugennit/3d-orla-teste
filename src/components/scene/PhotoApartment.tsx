@@ -3,6 +3,7 @@ import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { suspend } from 'suspend-react';
 import * as THREE from 'three';
+import { applyBoxProjection, setWhiteBalance, type EnvBox } from './photoShaders';
 
 /**
  * Cena fotorrealista gerada pelo pipeline do Blender (pipeline/build_scene.py):
@@ -18,6 +19,16 @@ export interface PhotoSceneConfig {
   baseUrl: string;
   /** Ponto (m da planta) e altura onde o cubemap de reflexos é capturado. */
   probe: [number, number, number];
+  /** Caixa do ambiente para os reflexos com correção de paralaxe: [x0, y0, x1, y1] da planta (m) e [piso, teto]. */
+  envBox?: { rect: [number, number, number, number]; z: [number, number] };
+}
+
+function envBoxOf(config: PhotoSceneConfig): EnvBox | null {
+  if (!config.envBox) return null;
+  const [x0, y0, x1, y1] = config.envBox.rect;
+  const [z0, z1] = config.envBox.z;
+  const [px, py, ph] = config.probe;
+  return { probe: new THREE.Vector3(px, ph, py), min: new THREE.Vector3(x0, z0, y0), max: new THREE.Vector3(x1, z1, y1) };
 }
 
 interface LightmapMeta {
@@ -37,13 +48,13 @@ interface Meta {
 }
 
 /** RGBM linear (cena-mestra): irradiância = rgb · a · faixa. */
-function rgbmChunk(range: number, wb: [number, number, number]) {
+function rgbmChunk(range: number) {
   return THREE.ShaderChunk.lights_fragment_maps.replace(
     'iblIrradiance += getIBLIrradiance( geometryNormal );',
     '/* irradiância difusa vem do lightmap */',
   ).replace(
     'lightMapTexel.rgb * lightMapIntensity',
-    `lightMapTexel.rgb * lightMapTexel.a * ${range.toFixed(3)} * lightMapIntensity * vec3( ${wb.map((v) => v.toFixed(4)).join(', ')} )`,
+    `lightMapTexel.rgb * lightMapTexel.a * ${range.toFixed(3)} * lightMapIntensity`,
   );
 }
 
@@ -66,6 +77,23 @@ const LEGACY_MATERIAL_TUNING: Record<string, (m: THREE.MeshStandardMaterial) => 
   // tinta off-white levemente mais quente
   paint: (m) => m.color.setRGB(1.03, 1.0, 0.96),
 };
+
+/**
+ * Materiais da cena-mestra que o glTF não descreve como no Cycles.
+ *  - voile (cortinas): no Cycles é tecido translúcido iluminado por trás; o glTF exporta só o
+ *    sheen e a cortina ficava opaca e cinza. Aqui: translúcida, sem escrever profundidade.
+ */
+function tuneMasterMaterial(m: THREE.MeshStandardMaterial) {
+  if (m.userData.masterTuned) return;
+  m.userData.masterTuned = true;
+  if (m.name === 'voile') {
+    m.transparent = true;
+    m.opacity = 0.5;
+    m.depthWrite = false;
+    m.side = THREE.DoubleSide;
+    m.emissive.setRGB(0.55, 0.56, 0.57); // luz do dia atravessando o tecido (não há lightmap nas cortinas)
+  }
+}
 
 /**
  * Calibração do tour contra o render do Cycles: valores do meta.json (gravados pelo pipeline)
@@ -130,6 +158,10 @@ export function PhotoApartment({
   ];
   const ceilings = useRef<THREE.Object3D[]>([]);
   const tune = useMemo(() => tourTuning(meta), [meta]);
+  const box = useMemo(() => envBoxOf(config), [config]);
+  // Balanço de branco global (antes do AgX), como no render do Blender. O pipeline antigo usa o
+  // ajuste embutido no lightmap (KEEP_IBL_SPECULAR).
+  useMemo(() => setWhiteBalance(meta.source ? (tune.whiteBalance ?? [1, 1, 1]) : [1, 1, 1]), [meta, tune]);
 
   useMemo(() => {
     prepareLightmap(lmArch, !!meta.lm_arch);
@@ -158,8 +190,14 @@ export function PhotoApartment({
           if (!meta.source) LEGACY_MATERIAL_TUNING[std.name]?.(std);
           std.userData.tuned = true;
         }
+        if (std.isMeshStandardMaterial && meta.source) tuneMasterMaterial(std);
         if (!group || !std.isMeshStandardMaterial) {
           std.envMapIntensity = tune.envIntensity ?? 1;
+          if (box && std.isMeshStandardMaterial && !std.userData.bp) {
+            std.userData.bp = true;
+            std.onBeforeCompile = (shader) => applyBoxProjection(shader, box);
+            std.customProgramCacheKey = () => 'bp';
+          }
           return std;
         }
         const key = `${std.uuid}:${group}`;
@@ -168,7 +206,7 @@ export function PhotoApartment({
           c = std.clone();
           c.lightMap = group === 'arch' ? lmArch : lmFurn;
           const lm = group === 'arch' ? meta.lm_arch : meta.lm_furn;
-          const chunk = lm ? rgbmChunk(lm.range, tune.whiteBalance ?? [1, 1, 1]) : KEEP_IBL_SPECULAR;
+          const chunk = lm ? rgbmChunk(lm.range) : KEEP_IBL_SPECULAR;
           if (lm) {
             c.lightMapIntensity = Math.PI; // bake difuso do Cycles = irradiância/π por unidade de albedo
           } else {
@@ -178,8 +216,9 @@ export function PhotoApartment({
           c.envMapIntensity = tune.envIntensity ?? 1;
           c.onBeforeCompile = (shader) => {
             shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_maps>', chunk);
+            if (box) applyBoxProjection(shader, box);
           };
-          c.customProgramCacheKey = () => (lm ? 'lightmapped-rgbm' : 'lightmapped');
+          c.customProgramCacheKey = () => (lm ? 'lightmapped-rgbm' : 'lightmapped') + (box ? '-bp' : '');
           clones.set(key, c);
         }
         return c;
@@ -200,7 +239,7 @@ export function PhotoApartment({
         }
       });
     }
-  }, [gltf, lmArch, lmFurn, meta, tune]);
+  }, [gltf, lmArch, lmFurn, meta, tune, box]);
 
   useEffect(() => {
     for (const c of ceilings.current) c.visible = showCeiling;
@@ -225,9 +264,11 @@ export function PhotoEnvironment({ config, exposure }: { config: PhotoSceneConfi
     sky.colorSpace = THREE.SRGBColorSpace;
     scene.background = sky;
     scene.backgroundIntensity = bg;
+    // Com scene.environment, a intensidade dos reflexos é da cena (envMapIntensity só vale com material.envMap).
+    scene.environmentIntensity = tune.envIntensity ?? 1;
     gl.toneMapping = THREE.AgXToneMapping;
     gl.toneMappingExposure = exp;
-  }, [sky, scene, gl, exp, bg]);
+  }, [sky, scene, gl, exp, bg, tune]);
 
   // Limpeza apenas ao sair da cena fotorrealista.
   useEffect(
