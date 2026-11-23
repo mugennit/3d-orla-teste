@@ -557,7 +557,7 @@ def build_architecture():
     polygon_obj('laje_inferior', L['envelope'], -0.015, 'slab', 'ARCH')
     # Laje superior (oclusora, não visível): com o forro por ambiente, o interior das paredes ficava
     # aberto para o céu e a luz vazava como linhas claras nos encontros parede/teto.
-    polygon_obj('laje_superior', L['envelope'], H + 0.02, 'slab', 'ARCH', flip=True)['occluder'] = 1
+    polygon_obj('laje_superior', L['envelope'], H + 0.0015, 'slab', 'ARCH', flip=True)['occluder'] = 1  # sem folga: o céu não entra por cima das paredes
     # M3: forro POR AMBIENTE, terminando na face das paredes. Antes era o contorno inteiro do
     # apartamento passando sobre as paredes: os texels do forro sobre a espessura das paredes ficavam
     # pretos no bake e vazavam como manchas em todos os encontros parede/teto.
@@ -641,6 +641,12 @@ def build_leaf(w, lf):
     out = []
     hx, hy = lf['hinge']
     cx, cy = lf['center']
+    # Folha aberta a 90°: afastada da parede pela espessura da guarnição (1,5 cm) + 2 mm, como a
+    # dobradiça real. Antes ela começava na face da parede e entrava 1 cm na guarnição.
+    ax_, ay_ = math.cos(lf['angle']), math.sin(lf['angle'])
+    sgn = 1 if (cx - hx) * ax_ + (cy - hy) * ay_ >= 0 else -1
+    off = 0.017
+    hx, hy, cx, cy = hx + ax_ * sgn * off, hy + ay_ * sgn * off, cx + ax_ * sgn * off, cy + ay_ * sgn * off
     ang = -lf['angle']
     hgt = lf['height']
     out.append(box(f"{lf['key']}_folha", 'lacquer_white', (lf['width'], lf['thickness'], hgt), V(cx, cy, hgt / 2), ang,

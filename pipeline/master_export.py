@@ -146,6 +146,20 @@ def prepare_scene():
             bm.from_mesh(o.data)
             n0 = len(bm.faces)
             bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0006)
+            # Faces externas da fachada (nunca vistas de dentro): fora do atlas, liberando resolução.
+            from shapely.geometry import Point, Polygon
+            env = Polygon(B.L['envelope']).buffer(-0.002)
+            mw = o.matrix_world
+            dead = []
+            for f in bm.faces:
+                c = mw @ f.calc_center_median()
+                n = (mw.to_3x3() @ f.normal).normalized()
+                if abs(n.z) < 0.5:
+                    q = c + n * 0.06
+                    if not env.contains(Point(q.x, -q.y)):
+                        dead.append(f)
+            bmesh.ops.delete(bm, geom=dead, context='FACES')
+            print(f'[export] paredes: {len(dead)} faces externas da fachada removidas', flush=True)
             bmesh.ops.dissolve_limit(bm, angle_limit=0.0175, verts=bm.verts, edges=bm.edges)
             bm.to_mesh(o.data)
             print(f'[export] paredes: {n0} → {len(bm.faces)} faces (soldadas e coplanares unidas)', flush=True)
