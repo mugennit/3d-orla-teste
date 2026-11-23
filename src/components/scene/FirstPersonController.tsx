@@ -6,6 +6,7 @@ import { moveWithCollisions } from '../../engine/collision';
 import type { Bounds, Collider } from '../../engine/geometry';
 import { addLook, consumeLook, inputState, isRunning, keyboardMove, keyboardTurn } from '../../input/inputState';
 import { playerState } from '../../input/playerState';
+import { viewSettings } from '../../input/viewSettings';
 
 interface Props {
   colliders: Collider[];
@@ -18,8 +19,8 @@ interface Props {
 const { damp } = THREE.MathUtils;
 
 /** Ajusta o FOV vertical para manter um campo de visão horizontal agradável em retrato e paisagem. */
-function fovForAspect(aspect: number): number {
-  const h = THREE.MathUtils.degToRad(controls.horizontalFov);
+function fovForAspect(aspect: number, hfov = viewSettings.horizontalFov): number {
+  const h = THREE.MathUtils.degToRad(hfov);
   const v = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(h / 2) / aspect));
   return THREE.MathUtils.clamp(v, controls.minVerticalFov, controls.maxVerticalFov);
 }
@@ -55,8 +56,10 @@ export function FirstPersonController({ colliders, bounds, pointerLock, onLockCh
     camera.rotation.order = 'YXZ';
   }, [camera]);
 
+  const appliedFov = useRef(0);
   useEffect(() => {
     camera.fov = fovForAspect(size.width / size.height);
+    appliedFov.current = viewSettings.horizontalFov;
     camera.near = 0.05;
     camera.far = 400;
     camera.updateProjectionMatrix();
@@ -93,6 +96,12 @@ export function FirstPersonController({ colliders, bounds, pointerLock, onLockCh
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
+    // Campo de visão alterado pelo visitante (painel de ajuda).
+    if (appliedFov.current !== viewSettings.horizontalFov) {
+      appliedFov.current = viewSettings.horizontalFov;
+      camera.fov = fovForAspect(size.width / size.height);
+      camera.updateProjectionMatrix();
+    }
 
     // Teleporte externo (clique na planta 3D).
     if (teleportSeen.current !== playerState.teleportVersion) {

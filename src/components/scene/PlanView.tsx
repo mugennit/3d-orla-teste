@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { controls } from '../../config/controls';
-import { resolvePosition } from '../../engine/collision';
+import { TELEPORT_MESSAGES, validateTeleport, type TeleportResult } from '../../engine/teleport';
 import type { Bounds, Collider } from '../../engine/geometry';
 import { polygonArea, polygonCentroid } from '../../engine/geometry';
 import type { ApartmentLayout } from '../../layout/types';
@@ -43,6 +43,37 @@ function useSectionCut() {
   }, [gl]);
 }
 
+/**
+ * Clique na planta → teletransporte VALIDADO (engine/teleport.ts): só ambientes internos, fora de
+ * paredes e móveis. Destino recusado não move a câmera e mostra o motivo no ponto clicado.
+ */
+function useTeleport(layout: ApartmentLayout, colliders: Collider[], onEnterAt: () => void) {
+  const [refused, setRefused] = useState<{ at: THREE.Vector3; text: string } | null>(null);
+  useEffect(() => {
+    if (!refused) return;
+    const t = window.setTimeout(() => setRefused(null), 1800);
+    return () => window.clearTimeout(t);
+  }, [refused]);
+  const tryTeleport = (point: THREE.Vector3, yaw: number): boolean => {
+    const r: TeleportResult = validateTeleport([point.x, point.z], layout, colliders, controls.playerRadius);
+    (window as unknown as { __lastTeleport?: TeleportResult }).__lastTeleport = r; // testes de ponta a ponta
+    if (!r.ok) {
+      setRefused({ at: point.clone(), text: TELEPORT_MESSAGES[r.reason] });
+      return false;
+    }
+    teleport(r.position, yaw);
+    playerState.pitch = 0;
+    onEnterAt();
+    return true;
+  };
+  const marker = refused ? (
+    <Html position={[refused.at.x, 0.05, refused.at.z]} center zIndexRange={[30, 0]}>
+      <div className="teleport-refused" role="status">{refused.text}</div>
+    </Html>
+  ) : null;
+  return { tryTeleport, marker };
+}
+
 export function PlanView(props: Props) {
   useSectionCut();
   return props.topo ? <TopView {...props} /> : <PerspectivePlanView {...props} />;
@@ -72,12 +103,11 @@ function TopView({ layout, bounds, colliders, onEnterAt, overlayOpacity = 0, sho
     return Math.max(10, Math.min((size.width - 32) / w, usableH / h));
   }, [bounds, size]);
 
+  const { tryTeleport, marker } = useTeleport(layout, colliders, onEnterAt);
   const handleFloorClick = (e: ThreeEvent<MouseEvent>) => {
     if (e.delta > 6) return;
     e.stopPropagation();
-    teleport(resolvePosition([e.point.x, e.point.z], colliders, controls.playerRadius), 0);
-    playerState.pitch = 0;
-    onEnterAt();
+    tryTeleport(e.point, 0);
   };
 
   return (
@@ -101,9 +131,11 @@ function TopView({ layout, bounds, colliders, onEnterAt, overlayOpacity = 0, sho
         minZoom={zoom * 0.6}
         maxZoom={zoom * 6}
       />
+      {/* Plano de clique maior que o apartamento: todo clique é avaliado (e recusado fora dele, com aviso). */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[center.x, 0.02, center.z]} onClick={handleFloorClick} visible={false}>
-        <planeGeometry args={[bounds.maxX - bounds.minX, bounds.maxY - bounds.minY]} />
+        <planeGeometry args={[bounds.maxX - bounds.minX + 40, bounds.maxY - bounds.minY + 40]} />
       </mesh>
+      {marker}
       <PlayerMarker />
       {overlayOpacity > 0 && layout.reference && <PlanOverlay layout={layout} opacity={overlayOpacity} />}
       {showLabels && <RoomLabels layout={layout} />}
@@ -193,15 +225,13 @@ function PerspectivePlanView({ layout, bounds, colliders, onEnterAt, showLabels 
     }
   });
 
+  const { tryTeleport, marker } = useTeleport(layout, colliders, onEnterAt);
   const handleFloorClick = (e: ThreeEvent<MouseEvent>) => {
     if (!ready || e.delta > 6) return; // ignora arrastes
     e.stopPropagation();
-    const p = resolvePosition([e.point.x, e.point.z], colliders, controls.playerRadius);
     // Entra olhando na mesma direção em que a planta está sendo vista.
     const dir = camera.getWorldDirection(new THREE.Vector3());
-    teleport(p, Math.atan2(-dir.x, -dir.z));
-    playerState.pitch = 0;
-    onEnterAt();
+    tryTeleport(e.point, Math.atan2(-dir.x, -dir.z));
   };
 
   return (
@@ -226,8 +256,9 @@ function PerspectivePlanView({ layout, bounds, colliders, onEnterAt, showLabels 
         onClick={handleFloorClick}
         visible={false}
       >
-        <planeGeometry args={[bounds.maxX - bounds.minX, bounds.maxY - bounds.minY]} />
+        <planeGeometry args={[bounds.maxX - bounds.minX + 40, bounds.maxY - bounds.minY + 40]} />
       </mesh>
+      {marker}
 
       <PlayerMarker />
 

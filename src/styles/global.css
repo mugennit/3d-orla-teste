@@ -708,3 +708,17 @@ kbd {
 .compare-mode .touch-look {
   display: none !important;
 }
+
+/* Teletransporte recusado (clique fora da área caminhável na planta). */
+.teleport-refused {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(179, 38, 30, 0.92);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+.fov-control { margin: 0 0 20px; }

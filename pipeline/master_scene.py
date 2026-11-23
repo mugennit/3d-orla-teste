@@ -592,6 +592,12 @@ def rug_pro():
     it = B.item('tapete')
     r = it['scale'] / 2
     cx, cy = it['at']
+    # M3: o tapete do book (Ø 1,40 m) entrava 4 cm na parede do sofá. Desloca o centro o mínimo
+    # necessário para ficar a 2 cm das faces das paredes (e reduz o raio só se não couber).
+    bx0, by0, bx1, by1 = B.wall_limits(cx - r, cy - r, cx + r, cy + r, gap=0.02)
+    r = min(r, (bx1 - bx0) / 2, (by1 - by0) / 2)
+    cx = min(max(cx, bx0 + r), bx1 - r)
+    cy = min(max(cy, by0 + r), by1 - r)
     bm = bmesh.new()
     bmesh.ops.create_grid(bm, x_segments=220, y_segments=220, size=r)
     dead = [v for v in bm.verts if v.co.x ** 2 + v.co.y ** 2 > (r - 0.005) ** 2]
@@ -642,38 +648,27 @@ def rug_pro():
 
 
 def curtains():
-    """Cortinas de voil (decoração) junto à porta da varanda: luz difusa e vista neutra."""
+    """Persiana rolô (tela solar translúcida) no topo do vão da porta de correr da varanda.
+
+    M3: substitui as cortinas de voil, que iam de canto a canto da parede e atravessavam a ponta do
+    sofá (5 cm do vidro) e o rack (encostado na parede) — layout do book, que não deixa espaço para
+    cortina até o piso. A persiana fica dentro do vão, recolhida com a barra a 1,95 m: acima de
+    qualquer móvel, sem alterar arquitetura nem a luz natural."""
     w = next(x for x in B.L['walls'] if x['id'] == 'varanda-porta-vidro')
-    y_face = w['from'][1] + w['thickness'] / 2
-    yc = y_face + 0.09
-    xa, xb = w['from'][0] + 0.02, w['to'][0] - 0.02
-    # trilho
-    B.box('trilho', 'alu', (xb - xa + 0.06, 0.02, 0.018), V((xa + xb) / 2, yc, H - 0.03), bevel=0.004)
-    for side, (s0, s1) in (('esq', (xa, xa + 0.62)), ('dir', (xb - 0.62, xb))):
-        bm = bmesh.new()
-        nx, nz = 90, 40
-        top, bottom = H - 0.04, 0.012
-        rows = []
-        for j in range(nz + 1):
-            z = top - (top - bottom) * j / nz
-            row = []
-            for i in range(nx + 1):
-                t = i / nx
-                x = s0 + (s1 - s0) * t
-                amp = 0.035 + 0.01 * math.sin(j * 0.7 + i * 0.05)
-                yy = yc + amp * math.sin(t * math.pi * 2 * 9) + 0.015 * (j / nz) * math.sin(t * 7 + j * 0.3)
-                row.append(bm.verts.new(V(x, yy, z)))
-            rows.append(row)
-        for j in range(nz):
-            for i in range(nx):
-                bm.faces.new([rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]])
-        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-        B.world_uv(bm, 0.5)
-        o = B.mesh_obj(f'DEC_cortina_{side}', bm, 'voile', 'FURN')
-        for p in o.data.polygons:
-            p.use_smooth = True
-        sol = o.modifiers.new('esp', 'SOLIDIFY')
-        sol.thickness = 0.002
+    op = w['openings'][0]
+    y_face = w['from'][1] + w['thickness'] / 2           # face interna da parede (lado da sala)
+    xa = w['from'][0] + op['offset'] + 0.01
+    xb = w['from'][0] + op['offset'] + op['width'] - 0.01
+    head = op['head']
+    yc = y_face + 0.045
+    parts = [
+        B.box('persiana_caixa', 'lacquer_white', (xb - xa + 0.02, 0.085, 0.095), V((xa + xb) / 2, yc, head + 0.0475), bevel=0.006),
+        B.box('persiana_barra', 'alu', (xb - xa - 0.01, 0.022, 0.03), V((xa + xb) / 2, yc, 1.965), bevel=0.006),
+    ]
+    tela = B.box('DEC_persiana_tela', 'voile', (xb - xa - 0.02, 0.003, head - 1.98), V((xa + xb) / 2, yc, (head + 1.98) / 2))
+    caixa = B.join(parts, 'MOV_persiana')
+    caixa['lightmap'] = 'furn'
+    return tela
 
 
 def books_stack(at, z, n=4, rot=0.0, name='livros'):
@@ -1017,10 +1012,13 @@ def entrance_hall():
     w = next(x for x in B.L['walls'] if x['id'] == 'ext-oeste')
     o = next(x for x in w['openings'] if x['id'] == 'porta-entrada')
     xo = w['from'][0] - w['thickness'] / 2          # face externa da parede oeste
-    ya, yb = o['offset'] - 0.6, o['offset'] + o['width'] + 0.6
+    # Faixa em y limitada à fachada (antes avançava além da parede externa sul e a atravessava).
+    ya = o['offset'] - 0.6
+    yb = min(o['offset'] + o['width'] + 0.12, max(p[1] for p in B.L['envelope']) - 0.002)
+    xo -= 0.002                                     # folga da face externa (sem faces coincidentes)
     X0 = xo - 1.6                                   # profundidade genérica de corredor
     parts = [
-        B.plan_box('hall_piso', 'granite_dark', X0, ya, xo, yb, -0.05, 0.0),
+        B.plan_box('hall_piso', 'granite_dark', X0, ya, xo, yb, -0.06, -0.006),  # abaixo da soleira
         B.plan_box('hall_teto', 'ceiling', X0, ya, xo, yb, 2.5, 2.55),
         B.plan_box('hall_fundo', 'paint', X0 - 0.05, ya, X0, yb, 0.0, 2.5),
         B.plan_box('hall_lado_a', 'paint', X0, ya - 0.05, xo, ya, 0.0, 2.5),

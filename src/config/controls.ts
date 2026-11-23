@@ -21,9 +21,10 @@ export const controls = {
   keyTurnSpeed: 1.8,
   /** Limite de inclinação vertical (rad). */
   maxPitch: (80 * Math.PI) / 180,
-  /** Campo de visão horizontal desejado (graus) — adaptado à orientação da tela. */
-  horizontalFov: 80,
-  maxVerticalFov: 95,
+  /** Campo de visão horizontal padrão (graus) — ≈ lente 0,6× de celular; ajustável na ajuda (70–110°). */
+  horizontalFov: 90,
+  /** Limite vertical (retrato): evita distorção exagerada nas bordas em telas estreitas. */
+  maxVerticalFov: 100,
   minVerticalFov: 50,
   /** Balanço sutil da cabeça ao caminhar. */
   headBobAmplitude: 0.018,

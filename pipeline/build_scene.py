@@ -684,9 +684,34 @@ def build_rug():
     o['lightmap'] = 'furn'
 
 
+def wall_limits(x0, y0, x1, y1, gap=0.003):
+    """Limites de um retângulo da planta contra as FACES reais das paredes do layout (paredes com
+    degraus, ex.: alvenaria → drywall). Retorna (x0, y0, x1, y1) recuado para não penetrar."""
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    for w in L['walls']:
+        (ax, ay), (bx, by), t = w['from'], w['to'], w['thickness']
+        if abs(ax - bx) < 1e-6:  # parede vertical em x = ax
+            if min(ay, by) < y1 and max(ay, by) > y0:
+                if ax > cx:
+                    x1 = min(x1, ax - t / 2 - gap)
+                else:
+                    x0 = max(x0, ax + t / 2 + gap)
+        elif abs(ay - by) < 1e-6:  # parede horizontal em y = ay
+            if min(ax, bx) < x1 and max(ax, bx) > x0:
+                if ay > cy:
+                    y1 = min(y1, ay - t / 2 - gap)
+                else:
+                    y0 = max(y0, ay + t / 2 + gap)
+    return x0, y0, x1, y1
+
+
 def build_rack_tv_art():
     it = item('rack')
     x0, y0, x1, y1 = it['rect']
+    # M3: a parede leste muda de alvenaria (face x = 3,430) para drywall (face x = 3,415) em y = 2,03;
+    # o retângulo do book usava a face da alvenaria e o rack entrava 2,3 cm no drywall.
+    x0, y0, x1, y1 = wall_limits(x0 - 0.02, y0, x1, y1)
+    x0 += 0.02
     z0, z1 = it['z']
     parts = [plan_box('rack_corpo', 'oak_warm', x0 + 0.02, y0 + 0.02, x1 - 0.005, y1 - 0.02, z0, z1, bevel=0.004)]
     n = 3
@@ -702,8 +727,8 @@ def build_rack_tv_art():
     tv = item('tv')
     tx, ty = tv['at']
     z0, z1 = tv['z']
-    face = tx - 0.002
     w = 1.23
+    face = min(tx, wall_limits(tx - 0.1, ty - w / 2, tx + 0.05, ty + w / 2, gap=0.002)[2])  # face real da parede (drywall)
     t = [plan_box('tv_corpo', 'black_satin', face - 0.03, ty - w / 2, face, ty + w / 2, z0, z1, bevel=0.004),
          plan_box('tv_tela', 'black_glass', face - 0.0315, ty - w / 2 + 0.008, face - 0.03, ty + w / 2 - 0.008, z0 + 0.008, z1 - 0.012)]
     o = join(t, 'MOV_tv')
@@ -890,7 +915,11 @@ def build_kitchen():
     up = item('aereo')
     ux0, uy0, ux1, uy1 = up['rect']
     uz0, uz1 = up['z']
-    uppers = [plan_box('aereo_corpo', 'oak_light', ux0 + 0.008, uy0, ux1 - 0.02, uy1, uz0, uz1)]
+    # Corpo do aéreo: sobre a geladeira ele só começa em 1,88 m (antes descia até uz0 e a geladeira
+    # entrava 1,8 cm nele, escondido nos renders).
+    over_fridge_y = (608 - 318) / PX
+    uppers = [plan_box('aereo_corpo', 'oak_light', ux0 + 0.008, uy0, ux1 - 0.02, over_fridge_y, uz0, uz1),
+              plan_box('aereo_corpo', 'oak_light', ux0 + 0.008, over_fridge_y, ux1 - 0.02, uy1, 1.88, uz1)]
     leds.append(plan_box('led_aereo', 'led', ux1 - 0.06, uy0 + 0.03, ux1 - 0.04, y1 - 0.03, uz0 - 0.004, uz0))
     # Frentes: módulo ripado (0,42 m) junto à parede da área de serviço + portas lisas.
     rip = 0.42

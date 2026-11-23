@@ -1,4 +1,28 @@
+import { useState } from 'react';
+import { FOV_MAX, FOV_MIN, setHorizontalFov, viewSettings } from '../../input/viewSettings';
 import { IconClose } from './Icons';
+
+/** Ajuste do campo de visão horizontal (70–110°; padrão 90° ≈ lente 0,6×). */
+export function FovControl() {
+  const [fov, setFov] = useState(viewSettings.horizontalFov);
+  return (
+    <label className="compare-slider fov-control">
+      Campo de visão: {fov}°{fov === 90 ? ' (padrão, ≈ 0,6×)' : ''}
+      <input
+        type="range"
+        min={FOV_MIN}
+        max={FOV_MAX}
+        step={1}
+        value={fov}
+        onChange={(e) => {
+          setHorizontalFov(Number(e.target.value));
+          setFov(viewSettings.horizontalFov);
+        }}
+        aria-label="Campo de visão horizontal em graus"
+      />
+    </label>
+  );
+}
 
 export function ControlsList({ isTouch }: { isTouch: boolean }) {
   return isTouch ? (
@@ -25,6 +49,7 @@ export function HelpPanel({ isTouch, onClose }: { isTouch: boolean; onClose: () 
         <button className="icon-btn panel-close" onClick={onClose} aria-label="Fechar"><IconClose /></button>
         <h2>Como navegar</h2>
         <ControlsList isTouch={isTouch} />
+        <FovControl />
       </div>
     </div>
   );
