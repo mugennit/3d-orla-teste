@@ -34,6 +34,7 @@ EXPOSURE = float(ARGS[ARGS.index('--exposure') + 1]) if '--exposure' in ARGS els
 # Jantar (rodada 3c): deslocamento da mesa em x (m, negativo = oeste) e cadeiras recolhidas.
 MESA_DX = float(ARGS[ARGS.index('--mesa-dx') + 1]) if '--mesa-dx' in ARGS else 0.0  # testado −0,10 e −0,15: piora a entrada
 CHAIRS_TUCKED = '--cadeiras-afastadas' not in ARGS
+OAK_TILE = 0.95  # m por repetição da lâmina de carvalho (mesa)
 TUCK = 0.04  # quanto a frente do assento entra sob o tampo (limitado pelos pés da mesa)
 BLEND_NAME = ARGS[ARGS.index('--blend') + 1] if '--blend' in ARGS else 'sala-cozinha.blend'
 os.makedirs(OUT, exist_ok=True)
@@ -194,14 +195,19 @@ def refine_materials():
     add_variation('steel', scale=9, color_amt=0.0, rough_amt=0.08)  # marcas sutis de uso no inox
     add_variation('lacquer_greige', scale=4, color_amt=0.03, rough_amt=0.06)
     add_variation('porcelain', scale=2, color_amt=0.0, rough_amt=0.05)
-    # Rodada 3: carvalho natural para a mesa (veio em escala real, menos alaranjado).
+    # Rodada 3: carvalho natural para a mesa (menos alaranjado).
+    # Rodada 4: textura 2k e escala real da folha de lâmina (~0,95 m por repetição, antes 0,45 m, que
+    # comprimia as "catedrais" do veio e o deixava ondulado de perto). UV do tampo refeita após o
+    # arredondamento (ver veneer_uv).
+    def ph2k(asset, kind):
+        return os.path.join(B.ASSETS, 'ph', asset, f'{kind}_2k.jpg')
     B.make_mat('oak_table',
-               color=B.processed('oak_table', ph('oak_veneer_01', 'diff'), lambda x: B.np.clip((x - x.mean()) * 0.8 + x.mean() * B.np.array([0.98, 0.93, 0.87]), 0, 1)),
-               normal=ph('oak_veneer_01', 'nor_gl'), nstrength=0.4,
-               rough=B.processed('oak_table_rough', ph('oak_veneer_01', 'rough'), B.rough_fn(0.55, 0.12)), tile=0.45)
+               color=B.processed('oak_table_2k', ph2k('oak_veneer_01', 'diff'), lambda x: B.np.clip((x - x.mean()) * 0.8 + x.mean() * B.np.array([0.98, 0.93, 0.87]), 0, 1)),
+               normal=ph2k('oak_veneer_01', 'nor_gl'), nstrength=0.3,
+               rough=B.processed('oak_table_rough_2k', ph2k('oak_veneer_01', 'rough'), B.rough_fn(0.55, 0.12)), tile=OAK_TILE)
     bsdf('oak_table').inputs['Coat Weight'].default_value = 0.2
     bsdf('oak_table').inputs['Coat Roughness'].default_value = 0.25
-    add_variation('oak_table', scale=4, color_amt=0.06, rough_amt=0.06)
+    add_variation('oak_table', scale=1.5, color_amt=0.04, rough_amt=0.05)
     # Novos materiais da cena-mestra.
     B.make_mat('voile', base=(0.92, 0.91, 0.88), roughness=0.9)
     v = bsdf('voile')
@@ -525,12 +531,37 @@ def shell_chair(name):
     return B.join(parts, name)
 
 
+def veneer_uv(ob, tile):
+    """UV de tampo folheado, refeita depois do arredondamento (o subdivision distorcia a UV do bm_box
+    e ondulava o veio). Projeção pela normal dominante; veio sempre ao longo do comprimento (y da planta),
+    inclusive nas bordas (fita de borda com veio horizontal)."""
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bm.normal_update()
+    uv = bm.loops.layers.uv.verify()
+    for f in bm.faces:
+        n = f.normal
+        ax = max(range(3), key=lambda i: abs(n[i]))
+        for lp in f.loops:
+            co = ob.matrix_world @ lp.vert.co
+            if ax == 2:
+                u, v = co.x, co.y
+            elif ax == 0:
+                u, v = co.z, co.y
+            else:
+                u, v = co.z, co.x
+            lp[uv].uv = (u / tile, v / tile)
+    bm.to_mesh(ob.data)
+    bm.free()
+
+
 def dining_pro():
     it = B.item('mesa')
     x0, y0, x1, y1 = it['rect']
     hz = it['z'][1]
     parts = [smooth_box('mesa_tampo', 'oak_table', (abs(x1 - x0), abs(y1 - y0) - 0.01, 0.032), V((x0 + x1) / 2, (y0 + y1) / 2 - 0.005, hz - 0.016),
                         bevel=0.006, sub=1)]
+    veneer_uv(parts[0], OAK_TILE)
     for lx in (x0 + 0.07, x1 - 0.07):
         for ly in (y0 + 0.07, y1 - 0.08):
             p = V(lx, ly, 0)
@@ -851,39 +882,146 @@ def cylinder_uv(ob, tile):
 def decor_pro():
     # Livros sobre o rack, junto aos vasos (book: rack com objetos).
     books_stack(((281 + 316) / 2 / B.PX - 42 / B.PX, (455 - 318) / B.PX), 0.52, n=3, rot=0.05, name='DEC_livros_rack')
-    # Vaso de vidro com flores sobre a mesa de jantar (Khronos glTF Sample Assets, CC0).
+    # Vasos de vidro próprios com flores sobre a mesa de jantar (rodada 4).
+    # O asset de amostra da Khronos (CC0) traz dois vasos de TESTE: um em vidro "alpha" (transparência
+    # rasterizada, sem refração — a borda escura vista nos renders) e outro em transmissão com parede de
+    # espessura irregular. Aqui só os ramos de flores (Flowers1/2) são aproveitados; os vasos são modelados.
     path = os.path.join(B.ASSETS, 'khronos', 'GlassVaseFlowers.glb')
+    mesa = B.item('mesa')
+    x0, y0, x1, y1 = mesa['rect']
+    top = mesa['z'][1]
+    base = Vector(V((x0 + x1) / 2 + 0.12, (y0 + y1) / 2 - 0.22, top))
+    S = 1.4  # mesma escala do arranjo anterior (vasos ≈ 10 × 20 cm)
+    # Perfis externos (raio, altura) em m já na escala final: cilíndrico e de bojo suave.
+    profiles = [
+        [(0.050, 0.0), (0.051, 0.03), (0.050, 0.12), (0.047, 0.17), (0.046, 0.197)],
+        [(0.044, 0.0), (0.052, 0.04), (0.053, 0.08), (0.046, 0.15), (0.040, 0.197)],
+    ]
+    vases = []
+    flowers = []
     if os.path.exists(path):
         before = set(bpy.data.objects)
         bpy.ops.import_scene.gltf(filepath=path)
-        new = [o for o in bpy.data.objects if o not in before]
-        meshes = [o for o in new if o.type == 'MESH']
-        others = [o.name for o in new if o.type != 'MESH']
-        for o in new:
-            for c in o.users_collection:
-                c.objects.unlink(o)
-            B.coll('FURN').objects.link(o)
-        for o in bpy.context.view_layer.objects:
-            o.select_set(o in meshes)
-        bpy.context.view_layer.objects.active = meshes[0]
-        bpy.ops.object.make_single_user(object=True, obdata=True)
-        bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
-        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
-        vase = B.join(meshes, 'DEC_vaso_flores')
-        for n in others:
-            if n in bpy.data.objects:
-                bpy.data.objects.remove(bpy.data.objects[n])
-        mn = min((vase.matrix_world @ Vector(c)).z for c in vase.bound_box)
-        mesa = B.item('mesa')
-        x0, y0, x1, y1 = mesa['rect']
-        bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
-        vase.location = V((x0 + x1) / 2 + 0.12, (y0 + y1) / 2 - 0.22, 0) + Vector((0, 0, mesa['z'][1] + (vase.location.z - mn)))
-        vase.scale = (1.4, 1.4, 1.4)
+        new_obs = [o for o in bpy.data.objects if o not in before]
+        for o in new_obs:
+            if o.type == 'MESH' and o.name.startswith('Flowers'):
+                flowers.append(o)
+            else:
+                bpy.data.objects.remove(o)
+        flowers.sort(key=lambda o: o.name)
+    for k, prof in enumerate(profiles):
+        # Centros dos vasos no asset original: x = 0,001 e 0,121 (escala 1) → espaçamento preservado.
+        c = base + Vector(((k - 0.5) * 0.12 * S, 0, 0))
+        v = glass_vase(f'DEC_vaso_vidro_{k + 1}', prof)
+        v.location = c
+        vases.append(v)
+        if k < len(flowers):
+            f = flowers[k]
+            for col in f.users_collection:
+                col.objects.unlink(f)
+            B.coll('FURN').objects.link(f)
+            f.parent = None
+            bpy.context.view_layer.update()
+            mw = f.matrix_world.copy()
+            f.matrix_world = Matrix.Identity(4)
+            f.data.transform(mw)
+            # Centraliza o ramo no vaso, mantendo a altura relativa do asset (hastes até perto do fundo).
+            xs = [vv.co.x for vv in f.data.vertices]
+            ys = [vv.co.y for vv in f.data.vertices]
+            f.data.transform(Matrix.Translation(Vector((-(min(xs) + max(xs)) / 2, -(min(ys) + max(ys)) / 2, 0))))
+            f.data.transform(Matrix.Diagonal((S, S, S, 1)))
+            f.location = c
+            f.name = f'DEC_flores_{k + 1}'
+
+
+def glass_vase(name, outer, wall=0.0028, bottom=0.009, segs=72):
+    """Vaso de vidro por revolução com espessura real: parede de 2,8 mm, fundo de 9 mm, borda
+    arredondada. Sólido fechado (normais consistentes) para a refração correta no Cycles e no
+    KHR_materials_transmission/volume do glTF."""
+    if 'vidro_vaso' not in B.MATS:
+        m = B.make_mat('vidro_vaso', base=(0.97, 0.99, 0.985), roughness=0.0, transmission=1.0, ior=1.5)
+        b = m.node_tree.nodes['Principled BSDF']
+        b.inputs['Transmission Weight'].default_value = 1.0
+        b.inputs['IOR'].default_value = 1.5
+        b.inputs['Roughness'].default_value = 0.0
+    H_ = outer[-1][1]
+    r_rim = outer[-1][0]
+    # Perfil fechado: eixo → fundo externo → parede externa → borda (meia-cana) → parede interna → fundo interno → eixo.
+    pts = [(0.0, 0.0), (outer[0][0] - 0.004, 0.0), (outer[0][0] - 0.001, 0.0012)] + [(r, z) for r, z in outer[1:-1]]
+    pts += [(r_rim, H_ - 0.0014)]
+    for t in (0.2, 0.4, 0.5, 0.6, 0.8):  # borda em meia-cana
+        a = math.pi * t
+        pts.append((r_rim - wall / 2 + wall / 2 * math.cos(a), H_ - 0.0014 + wall / 2 * math.sin(a)))
+    pts += [(r_rim - wall, H_ - 0.0014)]
+    for r, z in reversed(outer[1:-1]):
+        if z > bottom + 0.004:
+            pts.append((r - wall, z))
+    pts += [(outer[0][0] - wall - 0.004, bottom + 0.002), (outer[0][0] - wall - 0.008, bottom), (0.0, bottom)]
+    bm = bmesh.new()
+    rings = []
+    for i in range(segs):
+        ang = 2 * math.pi * i / segs
+        ring = []
+        for j, (r, z) in enumerate(pts):
+            if r == 0.0:
+                ring.append(None)
+            else:
+                ring.append(bm.verts.new((r * math.cos(ang), r * math.sin(ang), z)))
+        rings.append(ring)
+    axis = {j: bm.verts.new((0, 0, z)) for j, (r, z) in enumerate(pts) if r == 0.0}
+    n = len(pts)
+    for i in range(segs):
+        ra, rb = rings[i], rings[(i + 1) % segs]
+        for j in range(n - 1):
+            a0, a1, b0, b1 = ra[j], ra[j + 1], rb[j], rb[j + 1]
+            if a0 is None:
+                bm.faces.new((axis[j], b1, a1))
+            elif a1 is None:
+                bm.faces.new((a0, b0, axis[j + 1]))
+            else:
+                bm.faces.new((a0, b0, b1, a1))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(B.MATS['vidro_vaso'])
+    for p in me.polygons:
+        p.use_smooth = True
+    ob = bpy.data.objects.new(name, me)
+    B.coll('FURN').objects.link(ob)
+    # Bordas de fundo e borda superior com normais divididas (evita sombreamento "borrachudo").
+    try:
+        me.set_sharp_from_angle(angle=math.radians(40))
+    except Exception:
+        pass
+    return ob
 
 
 # =============================================================================
 # Luz de interiores, câmera de fotografia de arquitetura e render
 # =============================================================================
+
+def entrance_hall():
+    """Hall neutro do lado de fora da porta de entrada (aberta como no book).
+    Sem ele, o vão da porta mostrava o céu do mundo (área estourada nas vistas para o oeste) e
+    injetava luz de céu pela entrada, que num apartamento real dá para o corredor do prédio.
+    Volume genérico (piso, teto e paredes lisas, sem luz própria), totalmente FORA do apartamento:
+    não altera a geometria auditada nem as colisões, e não representa o corredor real do prédio
+    (desconhecido). A luz natural continua vindo só da varanda."""
+    w = next(x for x in B.L['walls'] if x['id'] == 'ext-oeste')
+    o = next(x for x in w['openings'] if x['id'] == 'porta-entrada')
+    xo = w['from'][0] - w['thickness'] / 2          # face externa da parede oeste
+    ya, yb = o['offset'] - 0.6, o['offset'] + o['width'] + 0.6
+    X0 = xo - 1.6                                   # profundidade genérica de corredor
+    parts = [
+        B.plan_box('hall_piso', 'granite_dark', X0, ya, xo, yb, -0.05, 0.0),
+        B.plan_box('hall_teto', 'ceiling', X0, ya, xo, yb, 2.5, 2.55),
+        B.plan_box('hall_fundo', 'paint', X0 - 0.05, ya, X0, yb, 0.0, 2.5),
+        B.plan_box('hall_lado_a', 'paint', X0, ya - 0.05, xo, ya, 0.0, 2.5),
+        B.plan_box('hall_lado_b', 'paint', X0, yb, xo, yb + 0.05, 0.0, 2.5),
+    ]
+    B.join(parts, 'ENTORNO_hall_entrada')
+
 
 def interior_lighting():
     sky = B.build_lighting()
@@ -928,6 +1066,8 @@ CAMERAS = {
     'conf-geladeira': dict(eye=(2.45, 5.1, 1.5), target=(0.45, 3.9, 1.0), lens=26, shift_y=0.0, pitch=True),
     'conf-cuba': dict(eye=(0.95, 2.45, 1.5), target=(0.36, 2.25, 0.8), lens=30, shift_y=0.0, pitch=True),
     'conf-cadeira': dict(eye=(1.85, 4.2, 1.15), target=(2.85, 4.95, 0.5), lens=30, shift_y=0.0, pitch=True),
+    # Rodada 4: tampo da mesa e vasos de perto.
+    'conf-mesa': dict(eye=(2.15, 4.5, 1.1), target=(2.65, 5.1, 0.76), lens=35, shift_y=0.0, pitch=True),
     'conf-sofa-frente': dict(eye=(3.05, 2.8, 1.2), target=(1.95, 2.2, 0.5), lens=22, shift_y=0.0, pitch=True),
 }
 
@@ -1023,6 +1163,7 @@ def main():
     dining_pro()
     curtains()
     decor_pro()
+    entrance_hall()
     # Acessórios CC0 (Poly Haven): plantas, vasos, pendente, bowl, tábua… (sem as cadeiras antigas).
     B.L['zoneItems'] = [i for i in B.L['zoneItems'] if i.get('asset') != 'dining_chair_02']
     B.place_assets()
