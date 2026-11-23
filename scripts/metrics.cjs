@@ -51,7 +51,7 @@ const profiles = [
     await page.waitForTimeout(1000);
     await page.waitForFunction(() => !document.querySelector('.loading-overlay'), null, { timeout: 600000 });
     const tReady = Date.now() - t0 - 400; // o overlay some 400 ms após 100%
-    await page.click('.btn-primary').catch(() => page.tap('.btn-primary'));
+    await page.evaluate(() => document.querySelector('.btn-primary').click());
     await page.waitForTimeout(3000);
     const info = await page.evaluate(() => {
       const gl = window.__gl;
