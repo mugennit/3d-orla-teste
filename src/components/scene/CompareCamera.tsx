@@ -17,7 +17,21 @@ export interface BlenderCamera {
   pitch?: boolean;
 }
 
-export const COMPARE_CAM = new URLSearchParams(window.location.search).get('cam');
+const Q = new URLSearchParams(window.location.search);
+/** `?cam=<nome>` (câmera do Blender) ou `?pose=x,y,altura,rumo°,inclinação°,lente` (testes de perto). */
+export const COMPARE_CAM = Q.get('cam') ?? (Q.get('pose') ? 'pose' : null);
+
+function poseCamera(): BlenderCamera | null {
+  const p = Q.get('pose')?.split(',').map(Number);
+  if (!p || p.length < 4) return null;
+  const [x = 0, y = 0, h = 1.6, rumo = 0, incl = 0, lens = 18] = p;
+  // rumo: 0° = -y da planta (norte do desenho), sentido horário — mesmo do spawn do layout.
+  const r = (rumo * Math.PI) / 180;
+  const i = (incl * Math.PI) / 180;
+  const tx = x + Math.sin(r) * Math.cos(i);
+  const ty = y - Math.cos(r) * Math.cos(i);
+  return { eye: [x, y, h], target: [tx, ty, h + Math.sin(i)], lens, pitch: incl !== 0 };
+}
 
 export function CompareCamera({ baseUrl }: { baseUrl: string }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
@@ -26,6 +40,10 @@ export function CompareCamera({ baseUrl }: { baseUrl: string }) {
 
   useEffect(() => {
     if (!COMPARE_CAM) return;
+    if (COMPARE_CAM === 'pose') {
+      setCam(poseCamera());
+      return;
+    }
     void fetch(`${baseUrl}/cameras.json`)
       .then((r) => r.json())
       .then((all: Record<string, BlenderCamera>) => setCam(all[COMPARE_CAM] ?? null));

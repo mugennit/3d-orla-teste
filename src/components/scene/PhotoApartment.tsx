@@ -110,8 +110,21 @@ function tourTuning(meta: Meta): NonNullable<Meta['tour']> {
   return t;
 }
 
+/**
+ * Lightmaps via ImageBitmap SEM pré-multiplicação de alfa: no RGBM o alfa é o multiplicador de
+ * intensidade (valores baixos); a decodificação padrão de <img> pré-multiplica e destrói a precisão
+ * das cores nas áreas de alfa baixo (manchas na laca, no piso e nas portas).
+ */
+function useLightmaps(urls: [string, string]): [THREE.Texture, THREE.Texture] {
+  const bitmaps = useLoader(THREE.ImageBitmapLoader, urls, (loader) => {
+    (loader as THREE.ImageBitmapLoader).setOptions({ premultiplyAlpha: 'none', colorSpaceConversion: 'none', imageOrientation: 'none' });
+  }) as ImageBitmap[];
+  return useMemo(() => bitmaps.map((b) => new THREE.Texture(b)) as [THREE.Texture, THREE.Texture], [bitmaps]);
+}
+
 function prepareLightmap(t: THREE.Texture, linear: boolean) {
   t.flipY = false;
+  t.premultiplyAlpha = false;
   t.colorSpace = linear ? THREE.NoColorSpace : THREE.SRGBColorSpace;
   t.channel = 1;
   t.generateMipmaps = true;
@@ -152,10 +165,7 @@ export function PhotoApartment({
   const metaText = useLoader(THREE.FileLoader, `${base}/meta.json`) as string;
   const meta = useMemo(() => JSON.parse(metaText) as Meta, [metaText]);
   const gltf = useGLTF(useModelUrl(base, tier), false, true);
-  const [lmArch, lmFurn] = useTexture([`${base}/${tier}/lm_arch.webp`, `${base}/${tier}/lm_furn.webp`]) as [
-    THREE.Texture,
-    THREE.Texture,
-  ];
+  const [lmArch, lmFurn] = useLightmaps([`${base}/${tier}/lm_arch.webp`, `${base}/${tier}/lm_furn.webp`]);
   const ceilings = useRef<THREE.Object3D[]>([]);
   const tune = useMemo(() => tourTuning(meta), [meta]);
   const box = useMemo(() => envBoxOf(config), [config]);
