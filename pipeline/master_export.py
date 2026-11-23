@@ -28,6 +28,8 @@ import build_scene as B
 ARGS = B.ARGS
 LM = int(ARGS[ARGS.index('--lm') + 1]) if '--lm' in ARGS else 1024
 LM_FURN = int(ARGS[ARGS.index('--lm-furn') + 1]) if '--lm-furn' in ARGS else LM
+LM_FLOOR = int(ARGS[ARGS.index('--lm-floor') + 1]) if '--lm-floor' in ARGS else LM
+LM_CEIL = int(ARGS[ARGS.index('--lm-ceil') + 1]) if '--lm-ceil' in ARGS else max(LM // 2, 512)
 LM_SAMPLES = int(ARGS[ARGS.index('--lm-samples') + 1]) if '--lm-samples' in ARGS else 48
 DO_BAKE = '--no-bake' not in ARGS
 RGBM_RANGE = 8.0
@@ -184,7 +186,7 @@ def bake_all(meta):
     hidden = [o for o in bpy.data.objects if o.type == 'MESH' and (o.name.startswith(('VIDROS', 'DEC_vaso_vidro')))]
     for o in hidden:
         o.hide_render = True  # vidro não bloqueia a luz no bake
-    for group, size in (('arch', LM), ('furn', LM_FURN)):
+    for group, size in (('arch', LM), ('floor', LM_FLOOR), ('ceil', LM_CEIL), ('furn', LM_FURN)):
         img = B.bake_group(group, size)
         dn = B.denoise(img)
         np.save(os.path.join(BUILD, f'lm_{group}_hdr.npy'), dn.astype(np.float16))
@@ -201,7 +203,7 @@ def bake_all(meta):
 
 def export(exposure, white_balance, cameras):
     os.makedirs(BUILD, exist_ok=True)
-    meta = {'source': 'master_scene', 'quality': f'lm{LM}/{LM_FURN}-s{LM_SAMPLES}', 'exposure': exposure,
+    meta = {'source': 'master_scene', 'quality': f'lm{LM}/{LM_FLOOR}/{LM_CEIL}/{LM_FURN}-s{LM_SAMPLES}', 'exposure': exposure,
             'white_balance': white_balance}
     prepare_scene()
     report = {}

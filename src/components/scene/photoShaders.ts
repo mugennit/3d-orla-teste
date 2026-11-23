@@ -59,13 +59,21 @@ let wbApplied = '';
 const AGX_ORIGINAL = THREE.ShaderChunk.tonemapping_pars_fragment;
 
 /** Balanço de branco antes do AgX (global; recompila os materiais quando muda). */
-export function setWhiteBalance(wb: [number, number, number]) {
-  const key = wb.join(',');
+export function setWhiteBalance(wb: [number, number, number], look = 1) {
+  const key = wb.join(',') + '|' + look;
   if (key === wbApplied) return false;
   wbApplied = key;
-  THREE.ShaderChunk.tonemapping_pars_fragment = AGX_ORIGINAL.replace(
+  let chunk = AGX_ORIGINAL.replace(
     'vec3 AgXToneMapping( vec3 color ) {',
     `vec3 AgXToneMapping( vec3 color ) {\n\tcolor *= vec3( ${wb.map((v) => v.toFixed(4)).join(', ')} );`,
   );
+  // "Look" de contraste do AgX (ASC CDL, como os looks do Blender): potência após a sigmoide.
+  if (look !== 1) {
+    chunk = chunk.replace(
+      'color = agxDefaultContrastApprox( color );',
+      `color = agxDefaultContrastApprox( color );\n\tcolor = pow( max( color, vec3( 0.0 ) ), vec3( ${look.toFixed(3)} ) );`,
+    );
+  }
+  THREE.ShaderChunk.tonemapping_pars_fragment = chunk;
   return true;
 }

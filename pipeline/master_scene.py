@@ -1062,6 +1062,33 @@ def interior_lighting():
         pl.energy = 25
 
 
+def bathroom_lights():
+    """Banheiros sem janela: plafon com luz acesa (luz quente 3000 K), como em fotografia de imóvel.
+    Sem isso eles saíam como caixas cinza-escuras no bake (só a luz que entra pela porta).
+    Decoração/iluminação — não altera paredes, vãos nem medidas."""
+    if 'plafon_difusor' not in B.MATS:
+        B.make_mat('plafon_difusor', base=(0.95, 0.93, 0.9), emission=(1.0, 0.86, 0.7), estrength=4.0, roughness=0.6)
+    for rid in ('banho-social', 'banho-suite'):
+        r = next((x for x in B.L['rooms'] if x['id'] == rid), None)
+        if not r:
+            continue
+        xs = [p[0] for p in r['polygon']]
+        ys = [p[1] for p in r['polygon']]
+        cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+        body = B.box(f'plafon_{rid}', 'lacquer_white', (0.3, 0.3, 0.035), V(cx, cy, H - 0.0175), bevel=0.012)
+        dif = B.box(f'plafon_difusor_{rid}', 'plafon_difusor', (0.26, 0.26, 0.004), V(cx, cy, H - 0.037), bevel=0.0015)
+        o = B.join([body, dif], f'MOV_plafon_{rid}')
+        o['lightmap'] = 'furn'
+        light = bpy.data.lights.new(f'luz_{rid}', 'AREA')
+        light.shape = 'DISK'
+        light.size = 0.24
+        light.energy = 38
+        light.color = (1.0, 0.86, 0.7)
+        lo = bpy.data.objects.new(f'LUZ_{rid}', light)
+        B.coll('LIGHTS').objects.link(lo)
+        lo.location = V(cx, cy, H - 0.045)
+
+
 CAMERAS = {
     # Sala + parte da cozinha (vista da entrada/jantar para a varanda).
     'sala-cozinha': dict(eye=(3.3, 4.4, 1.3), target=(0.3, 2.35, 1.3), lens=19, shift_y=-0.06),
@@ -1181,6 +1208,7 @@ def main():
     B.L['zoneItems'] = [i for i in B.L['zoneItems'] if i.get('asset') != 'dining_chair_02']
     B.place_assets()
     interior_lighting()
+    bathroom_lights()
     if '--export' in ARGS:
         # M3: mesma cena, exportada para o tour (bake de luz + glTF). Ver pipeline/master_export.py.
         import master_export

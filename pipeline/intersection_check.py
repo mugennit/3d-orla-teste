@@ -77,8 +77,8 @@ def inside_count(a, b):
 report = []
 for i, a in enumerate(objs):
     for b in objs[i + 1:]:
-        if a['kind'] == 'arq' and b['kind'] == 'arq':
-            continue
+        if a['kind'] == 'arq' and b['kind'] == 'arq' and 'ARQ_folhas_portas' not in (a['name'], b['name']):
+            continue  # paredes que se encontram; folhas de porta SÃO verificadas contra a arquitetura
         if any(a['hi'][k] < b['lo'][k] or b['hi'][k] < a['lo'][k] for k in range(3)):
             continue
         if not a['tree'].overlap(b['tree']):

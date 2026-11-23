@@ -465,6 +465,7 @@ def build_architecture():
     solids = []
     glass = []
     details = []
+    leaves = []  # folhas de porta em objeto próprio: entram na verificação de interseções (vs batentes/paredes)
     for w in L['walls']:
         mat = 'paint'
         if w['structure'] == 'railing':
@@ -480,7 +481,7 @@ def build_architecture():
         for o in w['openings']:
             details += build_opening(w, o, glass)
         for lf in w['leaves']:
-            details += build_leaf(w, lf)
+            leaves += build_leaf(w, lf)
 
     from shapely.geometry import box as sbox
     for sh in L['shafts']:
@@ -492,12 +493,39 @@ def build_architecture():
     d = join(details, 'ARQ_esquadrias')
     if d:
         d['lightmap'] = 'arch'
+    fl = join(leaves, 'ARQ_folhas_portas')
+    if fl:
+        fl['lightmap'] = 'arch'
     join(glass, 'VIDROS')
 
     # Pisos: placas de porcelanato 60×60 com junta na zona; demais ambientes em plano contínuo.
     tiles = []
     T, G = 0.6, 0.003
     ox, oy = L['tileRects'][0][0], L['tileRects'][0][3]  # paginação a partir da parede de entrada e da parede sul
+    # M3: placas recortadas pelos AMBIENTES da zona (antes os retângulos passavam por baixo das paredes:
+    # partes de placa ocultas viravam texels pretos no lightmap e manchavam o pé das paredes).
+    from shapely.geometry import Polygon as _Poly, box as _box
+    from shapely.ops import unary_union as _union
+    zone = _union([_Poly(r['polygon']) for r in L['rooms'] if r['id'] in L['zoneRooms']]).buffer(0)
+
+    def clipped(name, mat, cx0, cy0, cx1, cy1, z0, z1, **kw):
+        cell = _box(cx0, cy0, cx1, cy1)
+        inter = cell.intersection(zone)
+        if inter.is_empty or inter.area < 1.6e-5:
+            return []
+        if abs(inter.area - cell.area) < 1e-7:
+            return [plan_box(name, mat, cx0, cy0, cx1, cy1, z0, z1, **kw)]
+        out = []
+        for g in getattr(inter, 'geoms', [inter]):
+            if g.geom_type != 'Polygon' or g.area < 1.6e-5:
+                continue
+            bx0, by0, bx1, by1 = g.bounds
+            if abs(g.area - (bx1 - bx0) * (by1 - by0)) < 1e-7:
+                out.append(plan_box(name, mat, bx0, by0, bx1, by1, z0, z1, **kw))
+            else:  # recorte não retangular (raro): só a face superior
+                out.append(polygon_obj(name, list(g.exterior.coords)[:-1], z1, mat, 'ARCH'))
+        return out
+
     for (x0, y0, x1, y1) in L['tileRects']:
         i0, i1 = math.floor((x0 - ox) / T), math.ceil((x1 - ox) / T)
         j0, j1 = math.floor((oy - y1) / T), math.ceil((oy - y0) / T)
@@ -509,12 +537,13 @@ def build_architecture():
                 if cx1 - cx0 < 0.004 or cy1 - cy0 < 0.004:
                     continue
                 off = (random.random(), random.random())
-                tiles.append(plan_box(f'placa_{i}_{j}_{len(tiles)}', 'porcelain', cx0, cy0, cx1, cy1, -0.012, 0.0,
-                                      group='ARCH', bevel=0.0012, segments=1, uv_offset=off, uv_rot90=random.random() > 0.5))
-    join(tiles, 'ARQ_piso_porcelanato')['lightmap'] = 'arch'
-    grout = [plan_box(f'rejunte_{k}', 'grout', x0, y0, x1, y1, -0.014, -0.0025, group='ARCH')
-             for k, (x0, y0, x1, y1) in enumerate(L['tileRects'])]
-    join(grout, 'ARQ_rejunte')['lightmap'] = 'arch'
+                tiles += clipped(f'placa_{i}_{j}_{len(tiles)}', 'porcelain', cx0, cy0, cx1, cy1, -0.012, 0.0,
+                                 group='ARCH', bevel=0.0012, segments=1, uv_offset=off, uv_rot90=random.random() > 0.5)
+    join(tiles, 'ARQ_piso_porcelanato')['lightmap'] = 'floor'
+    grout = []
+    for k, (x0, y0, x1, y1) in enumerate(L['tileRects']):
+        grout += clipped(f'rejunte_{k}', 'grout', x0, y0, x1, y1, -0.014, -0.0025, group='ARCH')
+    join(grout, 'ARQ_rejunte')['lightmap'] = 'floor'
 
     floors = []
     for r in L['rooms']:
@@ -522,10 +551,14 @@ def build_architecture():
             continue
         mat = 'laminate' if r['floorMaterial'] == 'wood' else 'porcelain'
         floors.append(polygon_obj(f"piso_{r['id']}", r['polygon'], 0.0, mat, 'ARCH'))
-    join(floors, 'ARQ_pisos')['lightmap'] = 'arch'
+    join(floors, 'ARQ_pisos')['lightmap'] = 'floor'
     polygon_obj('laje_inferior', L['envelope'], -0.015, 'slab', 'ARCH')
-    ceil = polygon_obj('ARQ_forro', L['envelope'], H, 'ceiling', 'ARCH', flip=True)
-    ceil['lightmap'] = 'arch'
+    # M3: forro POR AMBIENTE, terminando na face das paredes. Antes era o contorno inteiro do
+    # apartamento passando sobre as paredes: os texels do forro sobre a espessura das paredes ficavam
+    # pretos no bake e vazavam como manchas em todos os encontros parede/teto.
+    ceils = [polygon_obj(f"forro_{r['id']}", r['polygon'], H, 'ceiling', 'ARCH', flip=True) for r in L['rooms']]
+    ceil = join(ceils, 'ARQ_forro')
+    ceil['lightmap'] = 'ceil'
     ceil['ceiling'] = 1
 
     # Rodapés (porcelanato, 7 cm) na sala, cozinha e circulação.
@@ -1232,9 +1265,34 @@ def lightmap_uvs(objs, margin=0.003):
         o.data.uv_layers.active = o.data.uv_layers[0]
 
 
+def planar_lm_uvs(objs, margin=0.01):
+    """UV2 planar (vista de cima) para piso e forro: um mapa CONTÍNUO do apartamento inteiro, sem
+    ilhas por placa (que davam tons diferentes a placas vizinhas) e com densidade uniforme
+    (~4 mm/texel em 2048 px para 8,4 m)."""
+    pts = [o.matrix_world @ v.co for o in objs for v in o.data.vertices]
+    x0, y0 = min(p.x for p in pts) - margin, min(p.y for p in pts) - margin
+    S = max(max(p.x for p in pts) - x0, max(p.y for p in pts) - y0) + margin
+    for o in objs:
+        me = o.data
+        while 'lm' not in me.uv_layers and len(me.uv_layers) > 1:
+            me.uv_layers.remove(me.uv_layers[-1])
+        lm = me.uv_layers.get('lm') or me.uv_layers.new(name='lm')
+        mw = o.matrix_world
+        for poly in me.polygons:
+            for li in poly.loop_indices:
+                p = mw @ me.vertices[me.loops[li].vertex_index].co
+                lm.data[li].uv = ((p.x - x0) / S, (p.y - y0) / S)
+        me.uv_layers.active = me.uv_layers[0]
+
+
 def bake_group(group, size):
     objs = objects_for(group)
-    lightmap_uvs(objs)
+    if group in ('floor', 'ceil'):
+        if group == 'floor':
+            drop_hidden_faces(objs)  # fundos das placas
+        planar_lm_uvs(objs)
+    else:
+        lightmap_uvs(objs)
     img = bpy.data.images.new(f'LM_{group}', size, size, float_buffer=True)
     for o in objs:
         for slot in o.material_slots:
@@ -1365,7 +1423,7 @@ def main():
     if DO_BAKE:
         for o in coll('GLASS').objects:
             o.hide_render = True  # vidro não bloqueia a luz no bake
-        for group in ('arch', 'furn'):
+        for group in ('arch', 'floor', 'ceil', 'furn'):
             img = bake_group(group, Q['lm'])
             dn = denoise(img)
             meta[f'k_{group}'] = write_lightmap(dn, f'lm_{group}')

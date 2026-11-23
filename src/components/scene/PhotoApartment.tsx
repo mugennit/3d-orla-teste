@@ -44,7 +44,9 @@ interface Meta {
   source?: string;
   lm_arch?: LightmapMeta;
   lm_furn?: LightmapMeta;
-  tour?: { exposure?: number; whiteBalance?: [number, number, number]; background?: number; envIntensity?: number };
+  lm_floor?: LightmapMeta;
+  lm_ceil?: LightmapMeta;
+  tour?: { exposure?: number; whiteBalance?: [number, number, number]; background?: number; envIntensity?: number; look?: number };
 }
 
 /** RGBM linear (cena-mestra): irradiância = rgb · a · faixa. */
@@ -127,6 +129,7 @@ function tourTuning(meta: Meta): NonNullable<Meta['tour']> {
   if (q.get('exp')) t.exposure = Number(q.get('exp'));
   if (q.get('bg')) t.background = Number(q.get('bg'));
   if (q.get('env')) t.envIntensity = Number(q.get('env'));
+  if (q.get('look')) t.look = Number(q.get('look'));
   const wb = q.get('wb')?.split(',').map(Number);
   if (wb?.length === 3) t.whiteBalance = wb as [number, number, number];
   return t;
@@ -137,11 +140,11 @@ function tourTuning(meta: Meta): NonNullable<Meta['tour']> {
  * intensidade (valores baixos); a decodificação padrão de <img> pré-multiplica e destrói a precisão
  * das cores nas áreas de alfa baixo (manchas na laca, no piso e nas portas).
  */
-function useLightmaps(urls: [string, string]): [THREE.Texture, THREE.Texture] {
+function useLightmaps(urls: string[]): THREE.Texture[] {
   const bitmaps = useLoader(THREE.ImageBitmapLoader, urls, (loader) => {
     (loader as THREE.ImageBitmapLoader).setOptions({ premultiplyAlpha: 'none', colorSpaceConversion: 'none', imageOrientation: 'none' });
   }) as ImageBitmap[];
-  return useMemo(() => bitmaps.map((b) => new THREE.Texture(b)) as [THREE.Texture, THREE.Texture], [bitmaps]);
+  return useMemo(() => bitmaps.map((b) => new THREE.Texture(b)), [bitmaps]);
 }
 
 function prepareLightmap(t: THREE.Texture, linear: boolean) {
@@ -187,18 +190,23 @@ export function PhotoApartment({
   const metaText = useLoader(THREE.FileLoader, `${base}/meta.json`) as string;
   const meta = useMemo(() => JSON.parse(metaText) as Meta, [metaText]);
   const gltf = useGLTF(useModelUrl(base, tier), false, true);
-  const [lmArch, lmFurn] = useLightmaps([`${base}/${tier}/lm_arch.webp`, `${base}/${tier}/lm_furn.webp`]);
+  // Grupos de lightmap: os do pipeline antigo (arch, furn) e, na cena-mestra, também piso e forro.
+  const groups = useMemo(
+    () => (['arch', 'furn', 'floor', 'ceil'] as const).filter((g) => g === 'arch' || g === 'furn' || meta[`lm_${g}`]),
+    [meta],
+  );
+  const lmList = useLightmaps(groups.map((g) => `${base}/${tier}/lm_${g}.webp`));
+  const lmBy = useMemo(() => Object.fromEntries(groups.map((g, i) => [g, lmList[i]!])) as Record<string, THREE.Texture>, [groups, lmList]);
   const ceilings = useRef<THREE.Object3D[]>([]);
   const tune = useMemo(() => tourTuning(meta), [meta]);
   const box = useMemo(() => envBoxOf(config), [config]);
   // Balanço de branco global (antes do AgX), como no render do Blender. O pipeline antigo usa o
   // ajuste embutido no lightmap (KEEP_IBL_SPECULAR).
-  useMemo(() => setWhiteBalance(meta.source ? (tune.whiteBalance ?? [1, 1, 1]) : [1, 1, 1]), [meta, tune]);
+  useMemo(() => setWhiteBalance(meta.source ? (tune.whiteBalance ?? [1, 1, 1]) : [1, 1, 1], tune.look ?? 1), [meta, tune]);
 
   useMemo(() => {
-    prepareLightmap(lmArch, !!meta.lm_arch);
-    prepareLightmap(lmFurn, !!meta.lm_furn);
-  }, [lmArch, lmFurn, meta.lm_arch, meta.lm_furn]);
+    for (const g of groups) prepareLightmap(lmBy[g]!, !!meta[`lm_${g}`]);
+  }, [groups, lmBy, meta]);
 
   // Associa lightmaps por grupo (userData.lightmap vem dos "extras" do glTF).
   useLayoutEffect(() => {
@@ -214,7 +222,8 @@ export function PhotoApartment({
       const geo = mesh.geometry;
       if (!geo.getAttribute('uv1') && geo.getAttribute('uv2')) geo.setAttribute('uv1', geo.getAttribute('uv2'));
       // Malhas com vários materiais viram um grupo: os "extras" ficam no nó pai.
-      const group = (mesh.userData.lightmap || mesh.parent?.userData.lightmap || undefined) as 'arch' | 'furn' | undefined;
+      const g0 = (mesh.userData.lightmap || mesh.parent?.userData.lightmap || undefined) as string | undefined;
+      const group = g0 && lmBy[g0] ? g0 : undefined;
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       const next = mats.map((m) => {
         const std = m as THREE.MeshStandardMaterial;
@@ -236,13 +245,13 @@ export function PhotoApartment({
         let c = clones.get(key) as THREE.MeshStandardMaterial | undefined;
         if (!c) {
           c = std.clone();
-          c.lightMap = group === 'arch' ? lmArch : lmFurn;
-          const lm = group === 'arch' ? meta.lm_arch : meta.lm_furn;
+          c.lightMap = lmBy[group]!;
+          const lm = meta[`lm_${group}` as 'lm_arch'];
           const chunk = lm ? rgbmChunk(lm.range) : KEEP_IBL_SPECULAR;
           if (lm) {
             c.lightMapIntensity = Math.PI; // bake difuso do Cycles = irradiância/π por unidade de albedo
           } else {
-            const k = (group === 'arch' ? meta.k_arch : meta.k_furn) ?? 1;
+            const k = (group === 'arch' ? meta.k_arch : meta.k_furn) ?? 1; // pipeline antigo: só arch/furn
             c.lightMapIntensity = Math.PI / k;
           }
           c.envMapIntensity = tune.envIntensity ?? 1;
@@ -264,14 +273,14 @@ export function PhotoApartment({
       gltf.scene.traverse((o) => {
         const mesh = o as THREE.Mesh;
         const g = mesh.userData.lightmap || mesh.parent?.userData.lightmap;
-        if (mesh.isMesh && g) {
-          const t = g === 'arch' ? lmArch : lmFurn;
+        if (mesh.isMesh && g && lmBy[g]) {
+          const t = lmBy[g]!;
           const mb = new THREE.MeshBasicMaterial({ map: t });
           mesh.material = mb;
         }
       });
     }
-  }, [gltf, lmArch, lmFurn, meta, tune, box]);
+  }, [gltf, lmBy, meta, tune, box]);
 
   useEffect(() => {
     for (const c of ceilings.current) c.visible = showCeiling;
