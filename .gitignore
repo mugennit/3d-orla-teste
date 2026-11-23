@@ -9,3 +9,4 @@ dist
 .cache/
 __pycache__/
 public/cenas/m3-teste/
+smoke-output/
