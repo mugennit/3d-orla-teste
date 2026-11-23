@@ -119,3 +119,27 @@ perto (revestimento, torneira, tábua, cooktop) convincente; luz difusa coerente
    bordas do quadro.
 
 Nenhum ajuste foi feito após estes renders (aguardando avaliação do cliente).
+
+## Rodadas 3 e 4 e encerramento do M1
+
+Documentação detalhada em `rodada3/` e `rodada4/`. Resumo:
+
+| Rodada | Pedido do cliente | Resultado |
+|---|---|---|
+| 3 | Parar de modelar móveis à mão; trocar sofá e geladeira; corrigir mesa, cadeiras, granito e cuba; prévias antes de renders longos | Sofá e cadeiras licenciados (CC-BY 4.0, Sketchfab via Objaverse, licença verificada um a um — `rodada3/MODELOS.md`); geladeira própria em inox escovado; cuba com profundidade real; granito com grão fino |
+| 3b/3c | Geladeira contemporânea; circulação com as quatro cadeiras recolhidas; testar mesa 15 cm a oeste | Mesa mantida na posição do book (deslocar piora a entrada: 0,72 → 0,60 m); lugares junto à parede leste no mínimo funcional (0,78 m); passagens de 0,66–0,72 m inerentes à planta (`rodada3/CIRCULACAO.md`, `rodada3/MOBILIARIO-x-PLANTA.md`); 10 renders finais (`rodada3/final-*.jpg`, `rodada3/AVALIACAO-FINAL.md`) |
+| 4 | Faixa clara no granito; vaso com borda escura; veio ondulado da mesa; luz estourada na entrada | Corrigidos sem tocar na geometria auditada (`rodada4/CORRECOES.md`); renders só das vistas afetadas (`rodada4/final-*.jpg`) |
+
+### Estado final da cena-mestra (entrada para o M3)
+
+- **Fonte:** `pipeline/master_scene.py` (+ `build_scene.py`, `models.py`). Cena gerada:
+  `.cache/master/*.blend` (não versionada, regenerável).
+- **Geometria:** a auditada, sem alterações. Mobiliário ilustrativo conforme o book, com as
+  diferenças documentadas em `rodada3/MOBILIARIO-x-PLANTA.md`.
+- **Elemento provisório fora do apartamento:** hall neutro da entrada
+  (`ENTORNO_hall_entrada`, coleção `ENTORNO_provisorio`), só para iluminação/vista pela porta
+  aberta. Não é geometria oficial, não tem colisão, não entra na circulação nem nas medidas.
+- **Créditos:** `.cache/assets/credits.json` → `public/cenas/orla-45m2/creditos.json` no M3
+  (CC0: Poly Haven, ambientCG, Khronos — só as flores do arranjo; CC-BY 4.0: sofá e cadeiras).
+- **Próximo passo:** M3 conforme `docs/m3/PLANO-INTEGRACAO-THREEJS.md`, **somente após
+  autorização do cliente**.

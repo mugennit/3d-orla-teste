@@ -22,3 +22,6 @@ Disposição do jantar: posição do book, cadeiras recolhidas (ver CIRCULACAO.m
 5. **Entrada estourada** à esquerda de `final-conf-geladeira.jpg` (luz externa pelo vão da porta).
 
 Nenhum item acima exige mudança na geometria auditada.
+
+> **Atualização (rodada 4):** itens 1, 2, 3 e 5 corrigidos — ver `../rodada4/CORRECOES.md`.
+> Item 4 mantido por decisão do cliente (câmera e geometria do book preservadas).
