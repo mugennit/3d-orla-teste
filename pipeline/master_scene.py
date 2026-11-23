@@ -1183,6 +1183,12 @@ def main():
     B.L['zoneItems'] = [i for i in B.L['zoneItems'] if i.get('asset') != 'dining_chair_02']
     B.place_assets()
     interior_lighting()
+    if '--export' in ARGS:
+        # M3: mesma cena, exportada para o tour (bake de luz + glTF). Ver pipeline/master_export.py.
+        import master_export
+        master_export.export(EXPOSURE, 8000, CAMERAS)
+        bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, 'export.blend'))
+        return
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, BLEND_NAME))
     if '--no-render' in ARGS:
         return

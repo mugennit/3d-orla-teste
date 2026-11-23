@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { buildColliders, layoutBounds } from '../../engine/geometry';
 import type { ApartmentLayout } from '../../layout/types';
 import { Apartment } from './Apartment';
+import { COMPARE_CAM, CompareCamera } from './CompareCamera';
 import { FirstPersonController } from './FirstPersonController';
 import { Lighting } from './Lighting';
 import { PhotoApartment, PhotoEnvironment, type PhotoSceneConfig } from './PhotoApartment';
@@ -72,7 +73,9 @@ export function TourScene({ layout, mode, active, isTouch, onLockChange, onEnter
             <Apartment layout={layout} showCeiling={mode === 'walk'} />
           </>
         )}
-        {mode === 'walk' ? (
+        {photo && COMPARE_CAM ? (
+          <CompareCamera baseUrl={photo.baseUrl} />
+        ) : mode === 'walk' ? (
           <FirstPersonController
             colliders={colliders}
             bounds={bounds}

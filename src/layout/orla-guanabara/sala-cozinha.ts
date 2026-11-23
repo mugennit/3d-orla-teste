@@ -98,6 +98,9 @@ export const salaCozinha: ZoneItem[] = [
 ];
 
 /** Colisores 2D do mobiliário sólido (convertidos para metros da planta). */
+/** Cadeira de jantar da cena-mestra (modelo licenciado, escala 0,84 m): dimensões em planta e recuo sob o tampo. */
+const CHAIR_MODEL = { depth: 0.545, width: 0.491, tuck: 0.04 };
+
 export function furnitureColliders(): Furniture[] {
   const out: Furniture[] = [];
   for (const it of salaCozinha) {
@@ -112,13 +115,23 @@ export function furnitureColliders(): Furniture[] {
         provenance: 'measured',
       });
     } else if (it.atPx && it.asset === 'dining_chair_02') {
-      out.push({
-        id: `col-${it.id}`,
-        kind: 'chair',
-        position: pagePxToPlan(it.atPx),
-        size: [0.42, 1, 0.42],
-        provenance: 'measured',
-      });
+      // Cadeiras recolhidas sob a mesa, como na cena-mestra (rodada 3c, docs/m1/rodada3/CIRCULACAO.md):
+      // assento entra CHAIR_TUCK sob o tampo; colisor = parte da cadeira fora do tampo (a mesa já colide).
+      const mesa = salaCozinha.find((m) => m.id === 'mesa')?.rectPx;
+      const [, cy] = pagePxToPlan(it.atPx);
+      if (mesa) {
+        const [tx0] = pagePxToPlan([mesa[0], 0]);
+        const [tx1] = pagePxToPlan([mesa[2], 0]);
+        const depth = CHAIR_MODEL.depth - CHAIR_MODEL.tuck;
+        const cx = it.facing === '+x' ? tx0 - depth / 2 : tx1 + depth / 2;
+        out.push({
+          id: `col-${it.id}`,
+          kind: 'chair',
+          position: [cx, cy],
+          size: [depth, 1, CHAIR_MODEL.width],
+          provenance: 'measured',
+        });
+      }
     }
   }
   return out;

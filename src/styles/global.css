@@ -696,3 +696,15 @@ kbd {
   background: var(--gold);
   transition: width 0.3s ease;
 }
+
+/* Modo de comparação com o Cycles (?cam=): só a imagem 3D, sem interface. */
+.compare-mode .topbar,
+.compare-mode .provisional-banner,
+.compare-mode .crosshair,
+.compare-mode .hint-pill,
+.compare-mode .keys-hint,
+.compare-mode .room-indicator,
+.compare-mode .joystick,
+.compare-mode .touch-look {
+  display: none !important;
+}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { COMPARE_CAM } from './components/scene/CompareCamera';
 import { TourScene, type ViewMode } from './components/scene/TourScene';
 import { requestPointerLock } from './components/scene/FirstPersonController';
 import { HelpPanel } from './components/ui/HelpPanel';
@@ -93,7 +94,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app mode-${mode}${isTouch ? ' is-touch' : ''}`}>
+    <div className={`app mode-${mode}${isTouch ? ' is-touch' : ''}${COMPARE_CAM ? ' compare-mode' : ''}`}>
       <div className="canvas-wrap">
         <TourScene
           layout={layout}
@@ -218,7 +219,7 @@ export default function App() {
         </div>
       )}
 
-      {!started && <StartScreen layout={layout} isTouch={isTouch} onStart={start} />}
+      {!started && !COMPARE_CAM && <StartScreen layout={layout} isTouch={isTouch} onStart={start} />}
       {help && <HelpPanel isTouch={isTouch} onClose={() => setHelp(false)} />}
     </div>
   );

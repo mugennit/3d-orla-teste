@@ -13,7 +13,7 @@ import { MeshoptEncoder } from 'meshoptimizer';
 import sharp from 'sharp';
 import { copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 
-const BUILD = '.cache/build';
+const BUILD = process.env.BUILD_DIR || '.cache/build';
 const OUT = process.env.OUT_DIR || 'public/cenas/orla-45m2';
 
 /**
@@ -24,10 +24,12 @@ const OUT = process.env.OUT_DIR || 'public/cenas/orla-45m2';
  *  - small: objetos pequenos de decoração.
  */
 const profiles = {
-  desktop: { hero: 2048, tiled: 1024, small: 1024, lm: 4096, quality: 88 },
-  mobile: { hero: 1024, tiled: 512, small: 512, lm: 2048, quality: 80 },
+  // M3: o computador não perde resolução (texturas no tamanho de origem, até 2048 px).
+  desktop: { hero: 2048, tiled: 2048, small: 1024, lm: 4096, quality: 90 },
+  mobile: { hero: 1024, tiled: 1024, small: 512, lm: 2048, quality: 80 },
 };
-const HERO = /dining_chair|chair_upholstery|potted_plant_02/;
+// Peças vistas de perto com UV única: modelos licenciados (sofá, cadeiras), mesa, plantas.
+const HERO = /dining_chair|chair_upholstery|potted_plant_02|Image_|Scene_-_Root|linho|oak_table/;
 const SMALL = /wooden_spoon|cutting_board|potted_plant_04|ceramic_vase|wooden_bowl|ceiling_lamp/;
 const TILED = new RegExp(`^(?!.*(${HERO.source}|${SMALL.source})).*$`);
 
@@ -65,7 +67,12 @@ for (const [name, p] of Object.entries(profiles)) {
       const img = sharp(src);
       const { width } = await img.metadata();
       const size = Math.min(width, p.lm);
-      await img.resize(size, size).webp({ quality: 92, smartSubsample: true }).toFile(`${dir}/lm_${g}.webp`);
+      if (meta[`lm_${g}`]?.encoding === 'rgbm') {
+        // RGBM (alfa = multiplicador): sem perdas, senão a compressão desloca a faixa dinâmica.
+        await img.resize(size, size, { kernel: 'cubic' }).webp({ lossless: true, alphaQuality: 100 }).toFile(`${dir}/lm_${g}.webp`);
+      } else {
+        await img.resize(size, size).webp({ quality: 92, smartSubsample: true }).toFile(`${dir}/lm_${g}.webp`);
+      }
       files.push(`${dir}/lm_${g}.webp`);
     } catch (e) {
       console.warn(`lightmap ${g} ausente:`, e.message);
@@ -79,7 +86,21 @@ try {
 } catch {
   console.warn('céu ausente');
 }
+// Calibração do tour contra o render (M3): exposição em EV do Cycles → fator linear; balanço de branco
+// e intensidades ajustados nas comparações lado a lado (scripts/compare.cjs). Sobrescrevível em tour.json.
+let tour = {};
+try {
+  tour = JSON.parse(readFileSync('pipeline/tour_calibration.json', 'utf8'));
+} catch {
+  /* sem calibração salva */
+}
+if (meta.source === 'master_scene') meta.tour = { exposure: 2 ** (meta.exposure ?? 0), ...tour };
 writeFileSync(`${OUT}/meta.json`, JSON.stringify({ ...meta, generatedAt: new Date().toISOString() }, null, 1));
+try {
+  copyFileSync(`${BUILD}/cameras.json`, `${OUT}/cameras.json`);
+} catch {
+  /* sem câmeras */
+}
 try {
   copyFileSync(`${BUILD}/credits_used.json`, `${OUT}/creditos.json`);
 } catch {
