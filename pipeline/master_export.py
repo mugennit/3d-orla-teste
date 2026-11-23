@@ -160,9 +160,11 @@ def prepare_scene():
                         dead.append(f)
             bmesh.ops.delete(bm, geom=dead, context='FACES')
             print(f'[export] paredes: {len(dead)} faces externas da fachada removidas', flush=True)
-            bmesh.ops.dissolve_limit(bm, angle_limit=0.0175, verts=bm.verts, edges=bm.edges)
+            # Sem dissolve_limit: unir as faces coplanares criava n-gons côncavos em volta das janelas e a
+            # triangulação deles amassava o lightmap. A solda já basta para o smart project formar ilhas
+            # contínuas por plano de parede.
             bm.to_mesh(o.data)
-            print(f'[export] paredes: {n0} → {len(bm.faces)} faces (soldadas e coplanares unidas)', flush=True)
+            print(f'[export] paredes: {n0} → {len(bm.faces)} faces (soldadas)', flush=True)
             bm.free()
         # Malhas muito densas (tapete com relevo deslocado, plantas): decimação para tempo real.
         # O relevo fino continua no mapa de normais; a silhueta é preservada.
