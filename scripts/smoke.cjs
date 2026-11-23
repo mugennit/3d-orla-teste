@@ -37,14 +37,14 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
   await page.goto(URL);
   await page.waitForSelector('.btn-primary');
   await page.waitForTimeout(1500);
-  await page.screenshot({ path: `${out}/desktop-1-inicio.png` });
+  await page.screenshot({ path: `${out}/desktop-1-inicio.png`, timeout: 240000 });
   await page.click('.btn-primary');
   await page.waitForTimeout(500);
   await waitLoaded(page);
 
   const s0 = await state(page);
   await page.keyboard.down('KeyW');
-  await page.waitForTimeout(6000); // longo: sem GPU a cena roda a poucos quadros por segundo
+  await page.waitForTimeout(12000); // longo: sem GPU a cena fotorrealista roda a ~1 quadro por segundo
   await page.keyboard.up('KeyW');
   await page.waitForTimeout(400);
   const s1 = await state(page);
@@ -69,7 +69,7 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
   await page.keyboard.up('KeyW');
   const s3 = await state(page);
   check(s3.p[1] >= 0.35 - 0.02 && s3.p[1] < 0.6, `Colisão: visitante parou na parede da janela (y = ${s3.p[1].toFixed(3)})`);
-  await page.screenshot({ path: `${out}/desktop-2-parede.png` });
+  await page.screenshot({ path: `${out}/desktop-2-parede.png`, timeout: 240000 });
 
   // Colisão com o mobiliário: anda contra a bancada da cozinha (frente em x ≈ 0,69 m → para em ≈ 0,94 m).
   await page.evaluate(() => { const t = window.__tour; t.position = [1.6, 2.9]; t.yaw = Math.PI / 2; t.pitch = 0; t.teleportVersion++; });
@@ -84,7 +84,7 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
   await page.keyboard.press('Tab');
   await page.waitForTimeout(1600);
   check(await page.locator('.mode-plan').count() === 1, 'Tab: alterna para a planta 3D');
-  await page.screenshot({ path: `${out}/desktop-3-planta.png` });
+  await page.screenshot({ path: `${out}/desktop-3-planta.png`, timeout: 240000 });
   await page.mouse.click(480, 330);
   await page.waitForTimeout(1000);
   check(await page.locator('.mode-walk').count() === 1, 'Planta 3D: clique no piso entra no modo visita');
@@ -93,7 +93,7 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
     Math.hypot(s4.p[0] - s3.p[0], s4.p[1] - s3.p[1]) > 0.3 && s4.p[0] > 0 && s4.p[0] < 8.4 && s4.p[1] > 0 && s4.p[1] < 5.9,
     `Planta 3D: visitante posicionado no ponto clicado (${s4.p.map((v) => v.toFixed(2)).join(', ')})`,
   );
-  await page.screenshot({ path: `${out}/desktop-4-entrar-aqui.png` });
+  await page.screenshot({ path: `${out}/desktop-4-entrar-aqui.png`, timeout: 240000 });
 
   // ---------------- Celular ----------------
   const ctx = await browser.newContext({ ...devices['iPhone 13'] });
@@ -103,7 +103,7 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
   await m.goto(URL);
   await m.waitForSelector('.btn-primary');
   await m.waitForTimeout(1500);
-  await m.screenshot({ path: `${out}/mobile-1-inicio.png` });
+  await m.screenshot({ path: `${out}/mobile-1-inicio.png`, timeout: 240000 });
   await m.tap('.btn-primary', { timeout: 120000 });
   await m.waitForTimeout(500);
   await waitLoaded(m);
@@ -128,10 +128,10 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
   await touch('touchEnd', []);
   check(Math.hypot(t1.p[0] - t0.p[0], t1.p[1] - t0.p[1]) > 0.3, 'Celular: joystick movimenta o visitante');
   check(Math.abs(t1.yaw - t0.yaw) > 0.1 && Math.abs(t1.pitch - t0.pitch) > 0.02, 'Celular: arraste à direita gira a câmera (H e V)');
-  await m.screenshot({ path: `${out}/mobile-2-visita.png` });
-  await m.tap('button[role=tab]:nth-child(2)');
+  await m.screenshot({ path: `${out}/mobile-2-visita.png`, timeout: 240000 });
+  await m.tap('button[role=tab]:nth-child(2)', { timeout: 240000 });
   await m.waitForTimeout(1600);
-  await m.screenshot({ path: `${out}/mobile-3-planta.png` });
+  await m.screenshot({ path: `${out}/mobile-3-planta.png`, timeout: 240000 });
 
   check(errors.length === 0, `Sem erros no console${errors.length ? ': ' + errors.join(' | ') : ''}`);
   await browser.close();

@@ -1,6 +1,31 @@
 {
- "quality": "final",
- "k_arch": 0.5063104033470154,
- "k_furn": 0.730170726776123,
- "generatedAt": "2026-11-19T21:48:25.116Z"
+ "source": "master_scene",
+ "quality": "lm2048/2048-s320",
+ "exposure": 1.3,
+ "white_balance": 8000,
+ "lm_arch": {
+  "size": 2048,
+  "encoding": "rgbm",
+  "range": 8,
+  "p50": 0.06218080595135689,
+  "p99": 3.7894325256347656
+ },
+ "lm_furn": {
+  "size": 2048,
+  "encoding": "rgbm",
+  "range": 8,
+  "p50": 0.00007430487312376499,
+  "p99": 1.4549508094787598
+ },
+ "tour": {
+  "exposure": 2.8,
+  "whiteBalance": [
+   1.07,
+   1,
+   0.89
+  ],
+  "background": 1,
+  "envIntensity": 1
+ },
+ "generatedAt": "2026-11-23T17:51:36.142Z"
 }

@@ -59,12 +59,6 @@
   "url": "https://ambientcg.com/view?id=Metal009",
   "license": "CC0 1.0"
  },
- "Poly Haven:dining_chair_02": {
-  "source": "Poly Haven",
-  "id": "dining_chair_02",
-  "url": "https://polyhaven.com/a/dining_chair_02",
-  "license": "CC0 1.0"
- },
  "Poly Haven:modern_ceiling_lamp_01": {
   "source": "Poly Haven",
   "id": "modern_ceiling_lamp_01",
@@ -130,5 +124,39 @@
   "id": "laminate_floor_02",
   "url": "https://polyhaven.com/a/laminate_floor_02",
   "license": "CC0 1.0"
+ },
+ "Poly Haven:potted_plant_01": {
+  "source": "Poly Haven",
+  "id": "potted_plant_01",
+  "url": "https://polyhaven.com/a/potted_plant_01",
+  "license": "CC0 1.0"
+ },
+ "Sketchfab:03550a3529c24611a12aa158747374e0": {
+  "source": "Sketchfab (arquivo via Objaverse)",
+  "id": "03550a3529c24611a12aa158747374e0",
+  "asset": "sofa",
+  "name": "Sofa",
+  "author": "katjagricishina",
+  "author_profile": "https://sketchfab.com/katjagricishina",
+  "url": "https://sketchfab.com/3d-models/sofa-03550a3529c24611a12aa158747374e0",
+  "license": "CC Attribution",
+  "license_url": "http://creativecommons.org/licenses/by/4.0/",
+  "verified": "2026-11-20",
+  "file_mirror": "https://huggingface.co/datasets/allenai/objaverse/resolve/main/glbs/000-001/03550a3529c24611a12aa158747374e0.glb",
+  "changes": "escala para 1,44 m; tecido clareado para linho cinza; brilho de fibra"
+ },
+ "Sketchfab:a5aa4613bc5b46baba4d9254d6c9c038": {
+  "source": "Sketchfab (arquivo via Objaverse)",
+  "id": "a5aa4613bc5b46baba4d9254d6c9c038",
+  "asset": "cadeira",
+  "name": "Dining_chair_241120",
+  "author": "3D Error 404",
+  "author_profile": "https://sketchfab.com/3DError404",
+  "url": "https://sketchfab.com/3d-models/dining-chair-241120-a5aa4613bc5b46baba4d9254d6c9c038",
+  "license": "CC Attribution",
+  "license_url": "http://creativecommons.org/licenses/by/4.0/",
+  "verified": "2026-11-20",
+  "file_mirror": "https://huggingface.co/datasets/allenai/objaverse/resolve/main/glbs/000-128/a5aa4613bc5b46baba4d9254d6c9c038.glb",
+  "changes": "escala para 0,84 m de altura; brilho de fibra"
  }
 }

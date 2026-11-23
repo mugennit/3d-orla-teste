@@ -92,6 +92,22 @@ function tuneMasterMaterial(m: THREE.MeshStandardMaterial) {
   if (phys.isMeshPhysicalMaterial && phys.clearcoat > 0) phys.clearcoatRoughness = Math.max(phys.clearcoatRoughness, 0.14);
   // Tapete: o relevo da trama era geometria deslocada no Cycles (decimada para o tempo real) → reforço no mapa de normais.
   if (m.name === 'rug' && m.normalMap) m.normalScale.multiplyScalar(2.2);
+  // Vidro dos vasos: transmissão com espessura real (parede de 2,8 mm) e sem rugosidade — sem isso o
+  // Three.js amostra o fundo desfocado e o vidro fica leitoso.
+  if (m.name === 'vidro_vaso' && phys.isMeshPhysicalMaterial) {
+    phys.roughness = 0;
+    phys.thickness = 0.006;
+    phys.ior = 1.5;
+    phys.color.setRGB(1, 1, 1);
+    phys.specularIntensity = 1;
+  }
+  // Folhas e flores com alfa: recorte (alphaTest) em vez de mistura — objetos transparentes não entram
+  // na passagem de refração do Three.js e os caules sumiam dentro dos vasos de vidro.
+  if (m.transparent && m.alphaMap === null && m.map && /Flowers|leaves/.test(m.name)) {
+    m.transparent = false;
+    m.alphaTest = 0.5;
+    m.depthWrite = true;
+  }
   if (m.name === 'voile') {
     m.transparent = true;
     m.opacity = 0.42;

@@ -47,6 +47,9 @@ export function TourScene({ layout, mode, active, isTouch, onLockChange, onEnter
     () => new URLSearchParams(window.location.search).get('q') === 'low',
   );
   const quality = degraded ? 'minimal' : isTouch ? 'low' : 'high';
+  // Pacote de modelos/texturas decidido UMA vez (aparelho ou ?q=low). A queda de FPS durante a visita
+  // só reduz a resolução de renderização: trocar de pacote recarregava a cena inteira no meio da caminhada.
+  const [tier] = useState<'desktop' | 'mobile'>(() => (isTouch || degraded ? 'mobile' : 'desktop'));
 
   return (
     <Canvas
@@ -65,7 +68,7 @@ export function TourScene({ layout, mode, active, isTouch, onLockChange, onEnter
         {photo ? (
           <>
             <PhotoEnvironment config={photo} exposure={2.35} />
-            <PhotoApartment config={photo} tier={isTouch || degraded ? 'mobile' : 'desktop'} showCeiling={mode === 'walk'} />
+            <PhotoApartment config={photo} tier={tier} showCeiling={mode === 'walk'} />
           </>
         ) : (
           <>
