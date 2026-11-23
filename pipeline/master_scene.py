@@ -1082,7 +1082,7 @@ def bathroom_lights():
         light = bpy.data.lights.new(f'luz_{rid}', 'AREA')
         light.shape = 'DISK'
         light.size = 0.24
-        light.energy = 38
+        light.energy = 9  # 38 W estourava o banheiro (2,7 m²)
         light.color = (1.0, 0.86, 0.7)
         lo = bpy.data.objects.new(f'LUZ_{rid}', light)
         B.coll('LIGHTS').objects.link(lo)

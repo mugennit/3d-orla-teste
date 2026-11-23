@@ -19,7 +19,7 @@ Uso:
 import json
 import os
 
-import bmesh  # noqa: F401
+import bmesh
 import bpy
 import numpy as np
 
@@ -138,6 +138,18 @@ def prepare_scene():
         # recebe a luz do ambiente capturado (irradiância do cubemap).
         if o.name.startswith('DEC_'):
             o['lightmap'] = ''
+        # Paredes: vértices soldados e faces coplanares dissolvidas antes da UV do lightmap. As paredes
+        # eram montadas em faixas de altura (peitoril, verga) sem vértices compartilhados: cada faixa
+        # virava uma ilha e apareciam faixas/emendas horizontais (ex.: acima das janelas dos quartos).
+        if o.name == 'ARQ_paredes':
+            bm = bmesh.new()
+            bm.from_mesh(o.data)
+            n0 = len(bm.faces)
+            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0006)
+            bmesh.ops.dissolve_limit(bm, angle_limit=0.0175, verts=bm.verts, edges=bm.edges)
+            bm.to_mesh(o.data)
+            print(f'[export] paredes: {n0} → {len(bm.faces)} faces (soldadas e coplanares unidas)', flush=True)
+            bm.free()
         # Malhas muito densas (tapete com relevo deslocado, plantas): decimação para tempo real.
         # O relevo fino continua no mapa de normais; a silhueta é preservada.
         tris = sum(len(p.vertices) - 2 for p in o.data.polygons)
@@ -214,7 +226,7 @@ def export(exposure, white_balance, cameras):
         bake_all(meta)
         B.render_sky()
     for o in bpy.context.view_layer.objects:
-        o.select_set(o.type == 'MESH' and not o.hide_render)
+        o.select_set(o.type == 'MESH' and not o.hide_render and not o.get('occluder'))
     bpy.ops.export_scene.gltf(filepath=os.path.join(BUILD, 'apto.glb'), export_format='GLB', use_selection=True,
                               export_apply=True, export_yup=True, export_extras=True, export_texcoords=True,
                               export_normals=True, export_tangents=True, export_materials='EXPORT',

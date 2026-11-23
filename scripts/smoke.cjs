@@ -85,6 +85,20 @@ const state = (page) => page.evaluate(() => ({ p: [...window.__tour.position], y
   await page.waitForTimeout(1600);
   check(await page.locator('.mode-plan').count() === 1, 'Tab: alterna para a planta 3D');
   await page.screenshot({ path: `${out}/desktop-3-planta.png`, timeout: 240000 });
+  // Teletransporte: cliques FORA do apartamento são recusados (não muda de modo nem de posição).
+  const vp = page.viewportSize();
+  const before = await state(page);
+  for (const [x, y] of [[14, vp.height - 30], [14, Math.round(vp.height / 2)]]) {
+    await page.mouse.click(x, y);
+    await page.waitForTimeout(700);
+  }
+  const lt = await page.evaluate(() => window.__lastTeleport);
+  const after = await state(page);
+  check(
+    (await page.locator('.mode-plan').count()) === 1 && lt && lt.ok === false && Math.hypot(after.p[0] - before.p[0], after.p[1] - before.p[1]) < 1e-6,
+    `Planta 3D: clique fora do apartamento é recusado (${lt ? lt.reason : 'sem resposta'})`,
+  );
+  check((await page.locator('.teleport-refused').count()) >= 1, 'Planta 3D: aviso visual do destino recusado');
   await page.mouse.click(480, 330);
   await page.waitForTimeout(1000);
   check(await page.locator('.mode-walk').count() === 1, 'Planta 3D: clique no piso entra no modo visita');

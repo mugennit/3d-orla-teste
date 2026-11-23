@@ -543,7 +543,9 @@ def build_architecture():
     grout = []
     for k, (x0, y0, x1, y1) in enumerate(L['tileRects']):
         grout += clipped(f'rejunte_{k}', 'grout', x0, y0, x1, y1, -0.014, -0.0025, group='ARCH')
-    join(grout, 'ARQ_rejunte')['lightmap'] = 'floor'
+    # O rejunte fica 2,5 mm abaixo das placas, sob a mesma projeção planar: se fosse assado junto,
+    # sobrescreveria os texels das placas (piso preto). Ele REUTILIZA o lightmap das placas ('floor_ref').
+    join(grout, 'ARQ_rejunte')['lightmap'] = 'floor_ref'
 
     floors = []
     for r in L['rooms']:
@@ -553,6 +555,9 @@ def build_architecture():
         floors.append(polygon_obj(f"piso_{r['id']}", r['polygon'], 0.0, mat, 'ARCH'))
     join(floors, 'ARQ_pisos')['lightmap'] = 'floor'
     polygon_obj('laje_inferior', L['envelope'], -0.015, 'slab', 'ARCH')
+    # Laje superior (oclusora, não visível): com o forro por ambiente, o interior das paredes ficava
+    # aberto para o céu e a luz vazava como linhas claras nos encontros parede/teto.
+    polygon_obj('laje_superior', L['envelope'], H + 0.02, 'slab', 'ARCH', flip=True)['occluder'] = 1
     # M3: forro POR AMBIENTE, terminando na face das paredes. Antes era o contorno inteiro do
     # apartamento passando sobre as paredes: os texels do forro sobre a espessura das paredes ficavam
     # pretos no bake e vazavam como manchas em todos os encontros parede/teto.
@@ -718,23 +723,40 @@ def build_rug():
 
 
 def wall_limits(x0, y0, x1, y1, gap=0.003):
-    """Limites de um retângulo da planta contra as FACES reais das paredes do layout (paredes com
-    degraus, ex.: alvenaria → drywall). Retorna (x0, y0, x1, y1) recuado para não penetrar."""
-    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    """Limites de um retângulo da planta contra as PEÇAS reais das paredes do layout (com os degraus
+    alvenaria → drywall e as extensões nas junções). Para cada peça que invade o retângulo, recua o
+    lado que perde menos área, mantendo o centro. Retorna (x0, y0, x1, y1)."""
     for w in L['walls']:
-        (ax, ay), (bx, by), t = w['from'], w['to'], w['thickness']
-        if abs(ax - bx) < 1e-6:  # parede vertical em x = ax
-            if min(ay, by) < y1 and max(ay, by) > y0:
-                if ax > cx:
-                    x1 = min(x1, ax - t / 2 - gap)
-                else:
-                    x0 = max(x0, ax + t / 2 + gap)
-        elif abs(ay - by) < 1e-6:  # parede horizontal em y = ay
-            if min(ax, bx) < x1 and max(ax, bx) > x0:
-                if ay > cy:
-                    y1 = min(y1, ay - t / 2 - gap)
-                else:
-                    y0 = max(y0, ay + t / 2 + gap)
+        for p in w.get('pieces', []):
+            if p.get('bottom', 0) > 0.6:      # vergas (acima de portas/janelas) não limitam móveis baixos
+                continue
+            (cx_, cy_), ln, t = p['center'], p['length'], p['thickness']
+            horiz = abs(math.sin(p['angle'])) < 0.5
+            hx, hy = (ln / 2, t / 2) if horiz else (t / 2, ln / 2)
+            rx0, rx1, ry0, ry1 = cx_ - hx, cx_ + hx, cy_ - hy, cy_ + hy
+            if rx1 <= x0 or rx0 >= x1 or ry1 <= y0 or ry0 >= y1:
+                continue
+            mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+            opts = []
+            if rx0 > mx:
+                opts.append(('x1', rx0 - gap, (x1 - (rx0 - gap)) * (y1 - y0)))
+            if rx1 < mx:
+                opts.append(('x0', rx1 + gap, ((rx1 + gap) - x0) * (y1 - y0)))
+            if ry0 > my:
+                opts.append(('y1', ry0 - gap, (y1 - (ry0 - gap)) * (x1 - x0)))
+            if ry1 < my:
+                opts.append(('y0', ry1 + gap, ((ry1 + gap) - y0) * (x1 - x0)))
+            if not opts:
+                continue
+            side, val, _ = min(opts, key=lambda o: o[2])
+            if side == 'x1':
+                x1 = val
+            elif side == 'x0':
+                x0 = val
+            elif side == 'y1':
+                y1 = val
+            else:
+                y0 = val
     return x0, y0, x1, y1
 
 
@@ -1287,10 +1309,11 @@ def planar_lm_uvs(objs, margin=0.01):
 
 def bake_group(group, size):
     objs = objects_for(group)
+    refs = objects_for(group + '_ref')  # recebem a mesma UV planar e o mesmo lightmap, sem entrar no bake
     if group in ('floor', 'ceil'):
         if group == 'floor':
             drop_hidden_faces(objs)  # fundos das placas
-        planar_lm_uvs(objs)
+        planar_lm_uvs(objs + refs)
     else:
         lightmap_uvs(objs)
     img = bpy.data.images.new(f'LM_{group}', size, size, float_buffer=True)
@@ -1306,6 +1329,8 @@ def bake_group(group, size):
     bpy.context.view_layer.objects.active = objs[0]
     bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, margin=8, use_clear=True,
                         target='IMAGE_TEXTURES', uv_layer='lm')
+    for o in refs:
+        o['lightmap'] = group
     return img
 
 

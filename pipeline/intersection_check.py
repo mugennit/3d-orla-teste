@@ -27,6 +27,8 @@ MIN_VERTS = 3        # vértices penetrando para contar como interseção
 # Encostos/encaixes intencionais (documentados): cadeira recolhida sob o tampo, vasos/flores, etc.
 ALLOWED = {
     frozenset(('DEC_flores_1', 'DEC_vaso_vidro_1')), frozenset(('DEC_flores_2', 'DEC_vaso_vidro_2')),
+    # pés do sofá apoiados sobre o tapete (o tapete de 16 mm cede sob os pés — contato físico esperado)
+    frozenset(('MOV_sofa', 'MOV_tapete')),
 }
 
 bpy.ops.wm.open_mainfile(filepath=BLEND)
