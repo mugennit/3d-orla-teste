@@ -1381,10 +1381,13 @@ def bake_group(group, size, bake=True):
     for o in bpy.context.view_layer.objects:
         o.select_set(o in objs)
     bpy.context.view_layer.objects.active = objs[0]
-    # Margem de 32 px: nos mapas planares (piso/forro) os vãos entre ambientes (sob as paredes) ficavam
+    # Margem de 32 px SÓ nos mapas planares (piso/forro) os vãos entre ambientes (sob as paredes) ficavam
     # pretos além de 8 px e o denoise borrava esse preto para dentro das bordas (encontro parede/teto
     # serrilhado). A margem só preenche texels vazios — não invade outras ilhas.
-    bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, margin=32, use_clear=True,
+    # Atlas com ilhas empacotadas (arquitetura, móveis): 8 px — mais que isso invade ilhas vizinhas.
+    planar = group in ('floor', 'ceil')
+    bpy.context.scene.render.bake.margin_type = 'EXTEND' if planar else 'ADJACENT_FACES'
+    bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, margin=32 if planar else 8, use_clear=True,
                         target='IMAGE_TEXTURES', uv_layer='lm')
     for o in refs:
         o['lightmap'] = group
