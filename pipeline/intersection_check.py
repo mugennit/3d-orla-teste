@@ -102,7 +102,7 @@ try:
     lay = _json.load(open(os.path.join(REPO, '.cache', 'build', 'layout.json')))
     env = _P(lay['envelope'])
 
-    def footprint(names, up):
+    def footprint(names, up, zmax=None):
         polys = []
         for n in names:
             o = bpy.data.objects.get(n)
@@ -113,18 +113,43 @@ try:
                 nz = (mw.to_3x3() @ f.normal).z
                 if (nz > 0.9) if up else (nz < -0.9):
                     pts = [mw @ o.data.vertices[i].co for i in f.vertices]
+                    if zmax is not None and max(p.z for p in pts) > zmax:
+                        continue
                     if len(pts) >= 3:
                         polys.append(_P([(p.x, -p.y) for p in pts]).buffer(0))
         return _U(polys)
 
-    walls = footprint(['ARQ_paredes'], True)  # topo das paredes = sua projeção em planta
+    # Paredes pela geometria auditada (peças do layout + shafts): as faces de topo das paredes são
+    # removidas no export (nunca vistas), então não servem para medir a projeção.
+    import math as _m
+    from shapely.geometry import box as _box
+    pcs = []
+    for w in lay['walls']:
+        if w.get('structure') == 'railing':
+            continue
+        for pc in w.get('pieces', []):
+            if pc['top'] < 2.49 and pc['bottom'] > 0.01:
+                continue
+            (cx_, cy_), ln, t = pc['center'], pc['length'], pc['thickness']
+            dx, dy = abs(_m.cos(pc['angle'])), abs(_m.sin(pc['angle']))
+            hx, hy = dx * ln / 2 + dy * t / 2, dy * ln / 2 + dx * t / 2
+            pcs.append((_box(cx_ - hx, cy_ - hy, cx_ + hx, cy_ + hy), pc['bottom'], pc['top']))
+    for sh in lay['shafts']:
+        x, y = sh['position']
+        sx, _, sy = sh['size']
+        pcs.append((_box(x - sx / 2, y - sy / 2, x + sx / 2, y + sy / 2), 0.0, 2.5))
+    walls = _U([g for g, b, t in pcs if t >= 2.49])         # forro: paredes de altura total (vergas inclusas)
+    walls_floor = _U([g for g, b, t in pcs if b < 0.01])     # piso: paredes que chegam ao piso
     ceil = footprint(['ARQ_forro'], False)
-    floor = footprint(['ARQ_pisos', 'ARQ_piso_porcelanato'], True)
+    # piso visível = pisos + porcelanato + soleiras (topo das soleiras nos vãos de porta, z < 3 cm)
+    floor = _U([footprint(['ARQ_pisos', 'ARQ_piso_porcelanato'], True), footprint(['ARQ_esquadrias'], True, zmax=0.03)])
+    rooms_u = _U([_P(r['polygon']) for r in lay['rooms']])
     rails = 0.0
-    interior = env.difference(walls.buffer(0.001))
-    gaps_c = interior.difference(ceil.buffer(0.001))
-    gaps_f = interior.difference(floor.buffer(0.004))  # juntas de 3 mm entre placas não contam
-    big = lambda g: [x for x in getattr(g, 'geoms', [g]) if x.area > 2e-4 and min(x.bounds[2] - x.bounds[0], x.bounds[3] - x.bounds[1]) > 0.002]
+    gaps_c = env.difference(walls.buffer(0.001)).difference(ceil.buffer(0.001))
+    gaps_f = env.difference(walls_floor.buffer(0.001)).difference(floor.buffer(0.004))  # juntas de 3 mm não contam
+    # só frestas DENTRO dos ambientes ou encostadas neles (faixas fora das paredes externas não aparecem)
+    big = lambda g: [x for x in getattr(g, 'geoms', [g]) if x.area > 2e-4 and min(x.bounds[2] - x.bounds[0], x.bounds[3] - x.bounds[1]) > 0.002
+                     and x.buffer(0.005).intersects(rooms_u)]
     for nome, g in (('forro', gaps_c), ('piso', gaps_f)):
         falhas = big(g)
         for x in falhas:

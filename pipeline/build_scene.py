@@ -537,7 +537,11 @@ def build_architecture():
     room_floor = {}
     taken = None
     for r in sorted(L['rooms'], key=lambda r: r['id'] not in L['zoneRooms']):
-        reg = _Poly(r['polygon']).buffer(0.09, join_style=2).intersection(floor_space)
+        own = _Poly(r['polygon'])
+        reg = own.buffer(0.09, join_style=2).intersection(floor_space)
+        # só a parte ligada ao próprio ambiente (o crescimento não pode "pular" uma parede fina e ocupar
+        # o piso do vizinho — era o que abria frestas de 2 cm no quarto 2 e na área de serviço)
+        reg = _union([g for g in getattr(reg, 'geoms', [reg]) if g.intersects(own.buffer(-0.001))])
         if taken is not None:
             reg = reg.difference(taken)
         taken = reg if taken is None else taken.union(reg)
