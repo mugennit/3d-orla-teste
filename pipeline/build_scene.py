@@ -1387,17 +1387,28 @@ def wall_plane_uvs(objs, size, margin_px=6):
             ax_u, ax_v = Vector((1, 0, 0)), Vector((0, 1, 0))
         else:
             ax_u, ax_v = Vector((-n0.y, n0.x, 0)).normalized(), Vector((0, 0, 1))
-        pts = []
+        # Trechos contínuos do plano (faces encostadas ao longo de u): um retângulo por trecho, em vez de
+        # um retângulo do tamanho do apartamento com vazios no meio.
+        items = []
         for o, poly, _ in faces:
             mw = o.matrix_world
+            fp = []
             for li in poly.loop_indices:
                 p_ = mw @ o.data.vertices[o.data.loops[li].vertex_index].co
-                pts.append((li, o, p_.dot(ax_u), p_.dot(ax_v)))
-        u0 = min(q[2] for q in pts)
-        v0 = min(q[3] for q in pts)
-        w = max(q[2] for q in pts) - u0
-        h = max(q[3] for q in pts) - v0
-        rects.append(dict(pts=pts, u0=u0, v0=v0, w=w, h=h))
+                fp.append((li, o, p_.dot(ax_u), p_.dot(ax_v)))
+            items.append((min(q[2] for q in fp), max(q[2] for q in fp), fp))
+        items.sort(key=lambda it: it[0])
+        clusters = []
+        for a, b, fp in items:
+            if clusters and a <= clusters[-1][1] + 0.02:
+                clusters[-1][1] = max(clusters[-1][1], b)
+                clusters[-1][2].extend(fp)
+            else:
+                clusters.append([a, b, list(fp)])
+        for _, _, pts in clusters:
+            u0 = min(q[2] for q in pts)
+            v0 = min(q[3] for q in pts)
+            rects.append(dict(pts=pts, u0=u0, v0=v0, w=max(q[2] for q in pts) - u0, h=max(q[3] for q in pts) - v0))
     rects.sort(key=lambda r: -r['h'])
     m = margin_px / size
 
@@ -1430,7 +1441,7 @@ def wall_plane_uvs(objs, size, margin_px=6):
             o.data.uv_layers['lm'].data[li].uv = (px + (u - r['u0']) * scale, py + (v - r['v0']) * scale)
     for o in objs:
         o.data.uv_layers.active = o.data.uv_layers[0]
-    print(f'[uv] paredes: {len(rects)} planos, {1 / scale * size / 100:.1f} cm por 100 texels', flush=True)
+    print(f'[uv] paredes: {len(groups)} planos, {len(rects)} trechos, {100 / (scale * size):.2f} cm por texel', flush=True)
 
 
 def bake_group(group, size, bake=True):
