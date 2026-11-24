@@ -90,8 +90,35 @@ visitas; `?fov=` na URL. Ver `docs/m3/v2/fov-80.png` × `fov-90.png`.
 |---|---|---|
 | Interseções entre todos os objetos | `pipeline/intersection_check.py` | 0 não justificadas |
 | Integridade dos ambientes (piso/forro sem frestas) | idem | 0 frestas |
-| Destinos de teletransporte | `teleport.test.ts` + `smoke.cjs` | ver relatório final abaixo |
+| Destinos de teletransporte | `teleport.test.ts` + `smoke.cjs` + `evidence.cjs` | recusa fora do apartamento, posição inalterada, aviso visível |
 | Inspeção visual de todos os cômodos (18 poses) + indicador de manchas | `scripts/rooms.cjs` | `docs/m3/v2/comodos.jpg` |
 | Comparação com o Cycles | `scripts/compare.cjs` | `docs/m3/v2/compare.json` |
-| Caminhada real com capturas em movimento | `scripts/walk.cjs` | colisões ok |
-| Testes de ponta a ponta (computador + celular) | `scripts/smoke.cjs` | ver abaixo |
+| Caminhada real com capturas em movimento | `scripts/walk.cjs` | colisão com a bancada ok (`caminhada.jpg`) |
+| Testes de ponta a ponta (computador + celular) | `scripts/smoke.cjs` | 13/13 verificações |
+| Testes unitários | `npx vitest run` | 25/25 |
+
+## Desempenho (pacote final, medido em navegador automatizado com rede simulada)
+
+| Perfil | Transferido | Cena pronta | Por quadro |
+|---|---|---|---|
+| Computador · 50 Mbit/s | 47,4 MB (modelo 33,7 + lightmaps 13,2) | 19,8 s | 114 chamadas · 681 mil triângulos |
+| Celular · 4G 12 Mbit/s | 23,1 MB (modelo 9,4 + lightmaps 13,2) | 35,3 s | 108 chamadas · 580 mil triângulos |
+| Celular · 4G fraco 5 Mbit/s | 23,1 MB | 49,2 s | idem |
+
+Lightmaps: paredes 2048 px (0,82 cm/texel), piso 2048, forro 1024, esquadrias/portas 2048, móveis 2048;
+224 amostras, ~55 min de bake em CPU. O perfil gráfico é escolhido uma vez na abertura e não troca durante a visita.
+
+Comparação com o Cycles (mesmos enquadramentos, `compare.json`): diferença média de luminância 15–31
+(0–255), cor média dentro de ±10 % na maioria das vistas. Nota: as referências do Cycles são da rodada 3/4,
+ainda com a cortina antiga; a persiana nova aparece só no navegador.
+
+## Limitações que permanecem
+
+- Iluminação pré-calculada: o tour não tem a luz indireta do Cycles em objetos que se movem (portas
+  são fixas). Reflexos são aproximados por um mapa de ambiente com projeção em caixa (só na sala/cozinha).
+- Ainda há um filete claro no encontro do piso com a parede ao lado do fim da bancada da cozinha e um
+  serrilhado fino em alguns encontros parede/teto dos quartos, ambos muito menores que antes.
+- Quartos, banheiros, circulação e área de serviço seguem sem acabamento/mobiliário final (fora do escopo
+  desta etapa).
+- No celular a primeira carga é pesada (23 MB); os lightmaps são os mesmos do computador.
+- Testes visuais feitos com renderizador por software (SwiftShader); quadros/s reais dependem do aparelho.

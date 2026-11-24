@@ -1,0 +1,74 @@
+{
+ "Sala · persiana e varanda": {
+  "pose": "2.4,3.8,1.6,0,0,16",
+  "manchas_pct": 4.92
+ },
+ "Sala · persiana, sofá e rack": {
+  "pose": "2.6,2.3,1.5,350,5,16",
+  "manchas_pct": 5.32
+ },
+ "Sala · sofá e rack (lateral)": {
+  "pose": "3.0,1.4,1.4,200,-10,16",
+  "manchas_pct": 3.94
+ },
+ "Cozinha · encontro parede/teto": {
+  "pose": "1.2,3.0,1.6,300,30,16",
+  "manchas_pct": 1.31
+ },
+ "Piso · cozinha/sala": {
+  "pose": "1.6,4.0,1.6,300,-45,16",
+  "manchas_pct": 3.58
+ },
+ "Entrada · porta e soleira": {
+  "pose": "1.0,5.2,1.6,270,-25,16",
+  "manchas_pct": 1.23
+ },
+ "Quarto 2 · canto da janela": {
+  "pose": "4.6,2.6,1.6,20,18,16",
+  "manchas_pct": 1.5
+ },
+ "Quarto 2 · canto oposto": {
+  "pose": "4.4,1.0,1.6,160,18,16",
+  "manchas_pct": 0.22
+ },
+ "Quarto 2 · soleira": {
+  "pose": "4.0,4.1,1.6,0,-55,16",
+  "manchas_pct": 2.71
+ },
+ "Suíte · canto da janela": {
+  "pose": "6.6,3.9,1.6,10,18,16",
+  "manchas_pct": 1.19
+ },
+ "Suíte · canto oposto": {
+  "pose": "7.6,2.0,1.6,200,18,16",
+  "manchas_pct": 0.3
+ },
+ "Circulação · piso e portas": {
+  "pose": "4.1,4.0,1.6,90,-40,16",
+  "manchas_pct": 1.43
+ },
+ "Banho social · porta": {
+  "pose": "4.2,4.05,1.6,180,-5,16",
+  "manchas_pct": 1.59
+ },
+ "Banho social · interno": {
+  "pose": "4.3,5.25,1.6,80,-10,16",
+  "manchas_pct": 0
+ },
+ "Banho social · teto": {
+  "pose": "4.6,5.2,1.5,0,45,16",
+  "manchas_pct": 0.8
+ },
+ "Banho suíte · porta": {
+  "pose": "6.8,4.1,1.6,180,-5,16",
+  "manchas_pct": 0.09
+ },
+ "Banho suíte · interno": {
+  "pose": "6.7,5.2,1.6,90,-10,16",
+  "manchas_pct": 0
+ },
+ "Varanda / serviço": {
+  "pose": "1.0,1.3,1.6,300,-20,16",
+  "manchas_pct": 2.65
+ }
+}

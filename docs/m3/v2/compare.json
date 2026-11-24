@@ -1,0 +1,182 @@
+{
+ "sala-cozinha": {
+  "tempo_s": 33.5,
+  "tour": [
+   141.7,
+   139.4,
+   133.3
+  ],
+  "referencia": "rodada3/final-sala-cozinha.jpg",
+  "cycles": [
+   143.4,
+   145.5,
+   139.7
+  ],
+  "razao_canais": [
+   1.012,
+   1.044,
+   1.048
+  ],
+  "dif_luminancia_media": 23.2
+ },
+ "cozinha": {
+  "tempo_s": 35.4,
+  "tour": [
+   136.7,
+   133.7,
+   127.3
+  ],
+  "referencia": "rodada3/final-cozinha.jpg",
+  "cycles": [
+   140.4,
+   141.1,
+   134.4
+  ],
+  "razao_canais": [
+   1.027,
+   1.055,
+   1.056
+  ],
+  "dif_luminancia_media": 24.9
+ },
+ "cozinha-book": {
+  "tempo_s": 32.9,
+  "tour": [
+   139.6,
+   135.1,
+   128.3
+  ],
+  "referencia": "rodada3/final-cozinha-book.jpg",
+  "cycles": [
+   153.9,
+   154.7,
+   149.1
+  ],
+  "razao_canais": [
+   1.102,
+   1.145,
+   1.162
+  ],
+  "dif_luminancia_media": 31
+ },
+ "jantar-detalhe": {
+  "tempo_s": 36,
+  "tour": [
+   154.3,
+   144.1,
+   132.5
+  ],
+  "referencia": "rodada4/final-jantar-detalhe.jpg",
+  "cycles": [
+   143.6,
+   131.8,
+   115.9
+  ],
+  "razao_canais": [
+   0.931,
+   0.915,
+   0.875
+  ],
+  "dif_luminancia_media": 20.6
+ },
+ "conf-cozinha-perto": {
+  "tempo_s": 31.4,
+  "tour": [
+   135,
+   128.2,
+   113.9
+  ],
+  "referencia": "rodada3/final-conf-cozinha-perto.jpg",
+  "cycles": [
+   126.5,
+   116.4,
+   93.3
+  ],
+  "razao_canais": [
+   0.937,
+   0.908,
+   0.819
+  ],
+  "dif_luminancia_media": 15.2
+ },
+ "conf-geladeira": {
+  "tempo_s": 31.1,
+  "tour": [
+   123.5,
+   119.5,
+   112.5
+  ],
+  "referencia": "rodada4/final-conf-geladeira.jpg",
+  "cycles": [
+   110.8,
+   106.9,
+   95.3
+  ],
+  "razao_canais": [
+   0.897,
+   0.895,
+   0.847
+  ],
+  "dif_luminancia_media": 26.6
+ },
+ "conf-cuba": {
+  "tempo_s": 32.5,
+  "tour": [
+   141.1,
+   127.1,
+   108.7
+  ],
+  "referencia": "rodada4/final-conf-cuba.jpg",
+  "cycles": [
+   139.1,
+   115.6,
+   83.3
+  ],
+  "razao_canais": [
+   0.986,
+   0.91,
+   0.766
+  ],
+  "dif_luminancia_media": 18.6
+ },
+ "conf-mesa": {
+  "tempo_s": 38.7,
+  "tour": [
+   140.5,
+   128,
+   104.3
+  ],
+  "referencia": "rodada4/final-conf-mesa.jpg",
+  "cycles": [
+   133.9,
+   116,
+   85.6
+  ],
+  "razao_canais": [
+   0.953,
+   0.906,
+   0.821
+  ],
+  "dif_luminancia_media": 24.8
+ },
+ "sofa-detalhe": {
+  "tempo_s": 38.5,
+  "tour": [
+   160.4,
+   166.8,
+   167.7
+  ],
+  "referencia": "rodada3/final-sofa-detalhe.jpg",
+  "cycles": [
+   155.7,
+   164.1,
+   164.9
+  ],
+  "razao_canais": [
+   0.971,
+   0.984,
+   0.983
+  ],
+  "dif_luminancia_media": 18.2
+ }
+}

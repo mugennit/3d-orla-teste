@@ -1,0 +1,32 @@
+[
+ {
+  "a": "DEC_flores_2",
+  "b": "DEC_vaso_vidro_2",
+  "vertices": [
+   0,
+   114
+  ],
+  "penetracao_m": 0.046,
+  "permitido": true
+ },
+ {
+  "a": "DEC_flores_1",
+  "b": "DEC_vaso_vidro_1",
+  "vertices": [
+   0,
+   139
+  ],
+  "penetracao_m": 0.032,
+  "permitido": true
+ },
+ {
+  "a": "MOV_sofa",
+  "b": "MOV_tapete",
+  "vertices": [
+   0,
+   15
+  ],
+  "penetracao_m": 0.03,
+  "permitido": true
+ }
+]
