@@ -67,8 +67,11 @@ function useTeleport(layout: ApartmentLayout, colliders: Collider[], onEnterAt: 
     return true;
   };
   const marker = refused ? (
-    <Html position={[refused.at.x, 0.05, refused.at.z]} center zIndexRange={[30, 0]}>
-      <div className="teleport-refused" role="status">{refused.text}</div>
+    <Html position={[refused.at.x, 0.05, refused.at.z]} zIndexRange={[30, 0]}>
+      {/* À direita do ponto clicado (centralizado, ficava cortado nas bordas da tela). */}
+      <div className="teleport-refused" role="status" style={{ transform: 'translate(10px, -50%)' }}>
+        {refused.text}
+      </div>
     </Html>
   ) : null;
   return { tryTeleport, marker };
