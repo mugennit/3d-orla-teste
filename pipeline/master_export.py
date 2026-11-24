@@ -30,6 +30,7 @@ LM = int(ARGS[ARGS.index('--lm') + 1]) if '--lm' in ARGS else 1024
 LM_FURN = int(ARGS[ARGS.index('--lm-furn') + 1]) if '--lm-furn' in ARGS else LM
 LM_FLOOR = int(ARGS[ARGS.index('--lm-floor') + 1]) if '--lm-floor' in ARGS else LM
 LM_CEIL = int(ARGS[ARGS.index('--lm-ceil') + 1]) if '--lm-ceil' in ARGS else max(LM // 2, 512)
+LM_ARCH = int(ARGS[ARGS.index('--lm-arch') + 1]) if '--lm-arch' in ARGS else max(LM // 2, 512)  # esquadrias, rodapés, portas
 LM_SAMPLES = int(ARGS[ARGS.index('--lm-samples') + 1]) if '--lm-samples' in ARGS else 48
 DO_BAKE = '--no-bake' not in ARGS
 RGBM_RANGE = 8.0
@@ -221,7 +222,7 @@ def bake_all(meta):
     src = b''.join(open(os.path.join(os.path.dirname(__file__), f), 'rb').read()
                    for f in ('master_scene.py', 'build_scene.py', 'master_export.py', 'models.py'))
     code_sig = hashlib.sha1(src).hexdigest()[:16]
-    for group, size in (('arch', LM), ('floor', LM_FLOOR), ('ceil', LM_CEIL), ('furn', LM_FURN)):
+    for group, size in (('walls', LM), ('arch', LM_ARCH), ('floor', LM_FLOOR), ('ceil', LM_CEIL), ('furn', LM_FURN)):
         npy = os.path.join(BUILD, f'lm_{group}_hdr.npy')
         tag_path = os.path.join(BUILD, f'lm_{group}_tag.json')
         tag = dict(code=code_sig, size=size, samples=LM_SAMPLES)

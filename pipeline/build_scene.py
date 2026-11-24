@@ -508,7 +508,7 @@ def build_architecture():
         sx, _, sy = sh['size']
         solids.append((sbox(x - sx / 2, y - sy / 2, x + sx / 2, y + sy / 2), 0.0, H))
 
-    clean_walls(solids)['lightmap'] = 'arch'
+    clean_walls(solids)['lightmap'] = 'walls'
     d = join(details, 'ARQ_esquadrias')
     if d:
         d['lightmap'] = 'arch'
@@ -1356,6 +1356,83 @@ def planar_lm_uvs(objs, margin=0.01):
         me.uv_layers.active = me.uv_layers[0]
 
 
+def wall_plane_uvs(objs, size, margin_px=6):
+    """UV2 das paredes POR PLANO: todas as faces de um mesmo plano (normal + distância) viram UMA ilha
+    contínua projetada no próprio plano, independente da conectividade. As paredes são montadas em
+    faixas de altura (piso→peitoril→verga→teto) com junções em T sobre os vãos; com o smart project cada
+    faixa virava uma ilha e aparecia uma faixa manchada na altura das vergas. Empacotamento em
+    prateleiras com densidade uniforme (busca binária da escala)."""
+    groups = {}
+    for o in objs:
+        me = o.data
+        while 'lm' not in me.uv_layers and len(me.uv_layers) > 1:
+            me.uv_layers.remove(me.uv_layers[-1])
+        if 'lm' not in me.uv_layers:
+            me.uv_layers.new(name='lm')
+        mw = o.matrix_world
+        rot = mw.to_3x3()
+        for poly in me.polygons:
+            n = (rot @ poly.normal).normalized()
+            c = mw @ poly.center
+            if abs(n.z) > 0.5:
+                key = ('h', round(n.z), round(c.z, 3))
+            else:
+                ang = round(math.degrees(math.atan2(n.y, n.x))) % 360
+                key = ('v', ang, round(n.x * c.x + n.y * c.y, 3))
+            groups.setdefault(key, []).append((o, poly, n))
+    rects = []
+    for key, faces in groups.items():
+        n0 = faces[0][2]
+        if key[0] == 'h':
+            ax_u, ax_v = Vector((1, 0, 0)), Vector((0, 1, 0))
+        else:
+            ax_u, ax_v = Vector((-n0.y, n0.x, 0)).normalized(), Vector((0, 0, 1))
+        pts = []
+        for o, poly, _ in faces:
+            mw = o.matrix_world
+            for li in poly.loop_indices:
+                p_ = mw @ o.data.vertices[o.data.loops[li].vertex_index].co
+                pts.append((li, o, p_.dot(ax_u), p_.dot(ax_v)))
+        u0 = min(q[2] for q in pts)
+        v0 = min(q[3] for q in pts)
+        w = max(q[2] for q in pts) - u0
+        h = max(q[3] for q in pts) - v0
+        rects.append(dict(pts=pts, u0=u0, v0=v0, w=w, h=h))
+    rects.sort(key=lambda r: -r['h'])
+    m = margin_px / size
+
+    def pack(scale):
+        x = y = shelf = 0.0
+        pos = []
+        for r in rects:
+            rw, rh = r['w'] * scale + m, r['h'] * scale + m
+            if rw > 1:
+                return None
+            if x + rw > 1:
+                x, y, shelf = 0.0, y + shelf, 0.0
+            if y + rh > 1:
+                return None
+            pos.append((x + m / 2, y + m / 2))
+            x += rw
+            shelf = max(shelf, rh)
+        return pos
+
+    lo, hi = 0.001, 2.0
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        if pack(mid):
+            lo = mid
+        else:
+            hi = mid
+    scale, pos = lo, pack(lo)
+    for r, (px, py) in zip(rects, pos):
+        for li, o, u, v in r['pts']:
+            o.data.uv_layers['lm'].data[li].uv = (px + (u - r['u0']) * scale, py + (v - r['v0']) * scale)
+    for o in objs:
+        o.data.uv_layers.active = o.data.uv_layers[0]
+    print(f'[uv] paredes: {len(rects)} planos, {1 / scale * size / 100:.1f} cm por 100 texels', flush=True)
+
+
 def bake_group(group, size, bake=True):
     """UV2 do grupo + bake difuso. bake=False: só a UV (retomada com o lightmap já salvo)."""
     objs = objects_for(group)
@@ -1364,6 +1441,9 @@ def bake_group(group, size, bake=True):
         if group == 'floor':
             drop_hidden_faces(objs)  # fundos das placas
         planar_lm_uvs(objs + refs)
+    elif group == 'walls':
+        drop_hidden_faces(objs)
+        wall_plane_uvs(objs, size)
     else:
         lightmap_uvs(objs)
     if not bake:
@@ -1385,7 +1465,7 @@ def bake_group(group, size, bake=True):
     # pretos além de 8 px e o denoise borrava esse preto para dentro das bordas (encontro parede/teto
     # serrilhado). A margem só preenche texels vazios — não invade outras ilhas.
     # Atlas com ilhas empacotadas (arquitetura, móveis): 8 px — mais que isso invade ilhas vizinhas.
-    planar = group in ('floor', 'ceil')
+    planar = group in ('floor', 'ceil')  # (paredes: ilhas por plano com 6 px entre elas → margem 8)
     bpy.context.scene.render.bake.margin_type = 'EXTEND' if planar else 'ADJACENT_FACES'
     bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, margin=32 if planar else 8, use_clear=True,
                         target='IMAGE_TEXTURES', uv_layer='lm')
@@ -1508,7 +1588,7 @@ def main():
     if DO_BAKE:
         for o in coll('GLASS').objects:
             o.hide_render = True  # vidro não bloqueia a luz no bake
-        for group in ('arch', 'floor', 'ceil', 'furn'):
+        for group in ('walls', 'arch', 'floor', 'ceil', 'furn'):
             img = bake_group(group, Q['lm'])
             dn = denoise(img)
             meta[f'k_{group}'] = write_lightmap(dn, f'lm_{group}')

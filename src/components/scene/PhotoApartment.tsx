@@ -46,6 +46,7 @@ interface Meta {
   lm_furn?: LightmapMeta;
   lm_floor?: LightmapMeta;
   lm_ceil?: LightmapMeta;
+  lm_walls?: LightmapMeta;
   tour?: { exposure?: number; whiteBalance?: [number, number, number]; background?: number; envIntensity?: number; look?: number };
 }
 
@@ -192,7 +193,7 @@ export function PhotoApartment({
   const gltf = useGLTF(useModelUrl(base, tier), false, true);
   // Grupos de lightmap: os do pipeline antigo (arch, furn) e, na cena-mestra, também piso e forro.
   const groups = useMemo(
-    () => (['arch', 'furn', 'floor', 'ceil'] as const).filter((g) => g === 'arch' || g === 'furn' || meta[`lm_${g}`]),
+    () => (['arch', 'furn', 'floor', 'ceil', 'walls'] as const).filter((g) => g === 'arch' || g === 'furn' || meta[`lm_${g}`]),
     [meta],
   );
   const lmList = useLightmaps(groups.map((g) => `${base}/${tier}/lm_${g}.webp`));

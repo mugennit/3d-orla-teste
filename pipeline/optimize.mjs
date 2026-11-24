@@ -61,7 +61,7 @@ for (const [name, p] of Object.entries(profiles)) {
   );
   await io.write(`${dir}/apto.glb`, doc);
   const files = [`${dir}/apto.glb`];
-  for (const g of ['arch', 'furn', 'floor', 'ceil'].filter((x) => x === 'arch' || x === 'furn' || meta[`lm_${x}`])) {
+  for (const g of ['arch', 'furn', 'floor', 'ceil', 'walls'].filter((x) => x === 'arch' || x === 'furn' || meta[`lm_${x}`])) {
     const src = `${BUILD}/lm_${g}.png`;
     try {
       const img = sharp(src);
