@@ -449,6 +449,25 @@ def clean_walls(solids):
     return mesh_obj('ARQ_paredes', bm, 'paint', 'ARCH')
 
 
+def solid_pieces(geom, min_area=2e-4):
+    """Polígonos simples (sem furos) de uma geometria shapely, para virar faces. Furos (ex.: shaft no
+    meio do ambiente) são resolvidos cortando o polígono ao meio pela linha do furo, recursivamente."""
+    from shapely.geometry import box as sbox
+    out = []
+    for g in getattr(geom, 'geoms', [geom]):
+        if g.geom_type != 'Polygon' or g.area < min_area:
+            continue
+        g = g.simplify(0.0005)
+        if not g.interiors:
+            out.append(g)
+            continue
+        hx = g.interiors[0].centroid.x
+        x0, y0, x1, y1 = g.bounds
+        out += solid_pieces(g.intersection(sbox(x0 - 1, y0 - 1, hx, y1 + 1)), min_area)
+        out += solid_pieces(g.intersection(sbox(hx, y0 - 1, x1 + 1, y1 + 1)), min_area)
+    return out
+
+
 def piece_polygon(p):
     from shapely.geometry import Polygon
     cx, cy = p['center']
@@ -506,7 +525,25 @@ def build_architecture():
     # partes de placa ocultas viravam texels pretos no lightmap e manchavam o pé das paredes).
     from shapely.geometry import Polygon as _Poly, box as _box
     from shapely.ops import unary_union as _union
-    zone = _union([_Poly(r['polygon']) for r in L['rooms'] if r['id'] in L['zoneRooms']]).buffer(0)
+    # M3 v2: os polígonos dos ambientes não encostavam nas faces das paredes (frestas de 4 mm a 7 cm):
+    # ali não havia piso nem forro (linhas claras no teto, fundo visível). Agora:
+    #  - piso de cada ambiente = polígono do ambiente crescido até as paredes ao nível do piso, sem
+    #    sobreposição entre ambientes nas passagens (o primeiro que ocupa fica com a área);
+    #  - forro = contorno do apartamento menos as paredes de altura total (encosta exatamente nas faces).
+    env_poly = _Poly(L['envelope'])
+    floor_walls = _union([g for g, b, t in solids if b < 0.01])
+    full_walls = _union([g for g, b, t in solids if t >= H - 0.01])
+    floor_space = env_poly.difference(floor_walls)
+    room_floor = {}
+    taken = None
+    for r in sorted(L['rooms'], key=lambda r: r['id'] not in L['zoneRooms']):
+        reg = _Poly(r['polygon']).buffer(0.09, join_style=2).intersection(floor_space)
+        if taken is not None:
+            reg = reg.difference(taken)
+        taken = reg if taken is None else taken.union(reg)
+        room_floor[r['id']] = reg.buffer(0)
+    zone = _union([room_floor[r] for r in L['zoneRooms']]).buffer(0)
+    ceil_space = env_poly.difference(full_walls).buffer(0)
 
     def clipped(name, mat, cx0, cy0, cx1, cy1, z0, z1, **kw):
         cell = _box(cx0, cy0, cx1, cy1)
@@ -552,7 +589,8 @@ def build_architecture():
         if r['id'] in L['zoneRooms']:
             continue
         mat = 'laminate' if r['floorMaterial'] == 'wood' else 'porcelain'
-        floors.append(polygon_obj(f"piso_{r['id']}", r['polygon'], 0.0, mat, 'ARCH'))
+        for k, g in enumerate(solid_pieces(room_floor[r['id']])):
+            floors.append(polygon_obj(f"piso_{r['id']}_{k}", list(g.exterior.coords)[:-1], 0.0, mat, 'ARCH'))
     join(floors, 'ARQ_pisos')['lightmap'] = 'floor'
     polygon_obj('laje_inferior', L['envelope'], -0.015, 'slab', 'ARCH')
     # Laje superior (oclusora, não visível): com o forro por ambiente, o interior das paredes ficava
@@ -561,7 +599,8 @@ def build_architecture():
     # M3: forro POR AMBIENTE, terminando na face das paredes. Antes era o contorno inteiro do
     # apartamento passando sobre as paredes: os texels do forro sobre a espessura das paredes ficavam
     # pretos no bake e vazavam como manchas em todos os encontros parede/teto.
-    ceils = [polygon_obj(f"forro_{r['id']}", r['polygon'], H, 'ceiling', 'ARCH', flip=True) for r in L['rooms']]
+    ceils = [polygon_obj(f'forro_{k}', list(g.exterior.coords)[:-1], H, 'ceiling', 'ARCH', flip=True)
+             for k, g in enumerate(solid_pieces(ceil_space))]
     ceil = join(ceils, 'ARQ_forro')
     ceil['lightmap'] = 'ceil'
     ceil['ceiling'] = 1

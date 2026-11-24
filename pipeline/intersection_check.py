@@ -91,6 +91,49 @@ for i, a in enumerate(objs):
             ok = frozenset((a['name'], b['name'])) in ALLOWED
             report.append(dict(a=a['name'], b=b['name'], vertices=[n1, n2], penetracao_m=round(max(d1, d2), 3), permitido=ok))
 
+# ---------------------------------------------------------------------------------------------
+# Integridade dos ambientes: piso e forro cobrem toda a área interna até as faces das paredes.
+# Frestas entre o polígono do ambiente e a parede deixavam ver o fundo (linhas claras no teto).
+# ---------------------------------------------------------------------------------------------
+try:
+    import json as _json
+    from shapely.geometry import Polygon as _P
+    from shapely.ops import unary_union as _U
+    lay = _json.load(open(os.path.join(REPO, '.cache', 'build', 'layout.json')))
+    env = _P(lay['envelope'])
+
+    def footprint(names, up):
+        polys = []
+        for n in names:
+            o = bpy.data.objects.get(n)
+            if not o:
+                continue
+            mw = o.matrix_world
+            for f in o.data.polygons:
+                nz = (mw.to_3x3() @ f.normal).z
+                if (nz > 0.9) if up else (nz < -0.9):
+                    pts = [mw @ o.data.vertices[i].co for i in f.vertices]
+                    if len(pts) >= 3:
+                        polys.append(_P([(p.x, -p.y) for p in pts]).buffer(0))
+        return _U(polys)
+
+    walls = footprint(['ARQ_paredes'], True)  # topo das paredes = sua projeção em planta
+    ceil = footprint(['ARQ_forro'], False)
+    floor = footprint(['ARQ_pisos', 'ARQ_piso_porcelanato'], True)
+    rails = 0.0
+    interior = env.difference(walls.buffer(0.001))
+    gaps_c = interior.difference(ceil.buffer(0.001))
+    gaps_f = interior.difference(floor.buffer(0.004))  # juntas de 3 mm entre placas não contam
+    big = lambda g: [x for x in getattr(g, 'geoms', [g]) if x.area > 2e-4 and min(x.bounds[2] - x.bounds[0], x.bounds[3] - x.bounds[1]) > 0.002]
+    for nome, g in (('forro', gaps_c), ('piso', gaps_f)):
+        falhas = big(g)
+        for x in falhas:
+            report.append(dict(a=f'INTEGRIDADE_{nome}', b='fresta', vertices=[0, 0], penetracao_m=round(x.area, 4),
+                               permitido=False, onde=[round(v, 3) for v in x.bounds]))
+        print(f'[integridade] {nome}: {len(falhas)} frestas > 2 cm² (área total {g.area:.4f} m²)')
+except Exception as e:  # noqa: BLE001
+    print('[integridade] não verificada:', e)
+
 report.sort(key=lambda r: -r['penetracao_m'])
 json.dump(report, open(OUT, 'w'), indent=1, ensure_ascii=False)
 bad = [r for r in report if not r['permitido']]
