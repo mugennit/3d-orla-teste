@@ -1313,7 +1313,8 @@ def planar_lm_uvs(objs, margin=0.01):
         me.uv_layers.active = me.uv_layers[0]
 
 
-def bake_group(group, size):
+def bake_group(group, size, bake=True):
+    """UV2 do grupo + bake difuso. bake=False: só a UV (retomada com o lightmap já salvo)."""
     objs = objects_for(group)
     refs = objects_for(group + '_ref')  # recebem a mesma UV planar e o mesmo lightmap, sem entrar no bake
     if group in ('floor', 'ceil'):
@@ -1322,6 +1323,10 @@ def bake_group(group, size):
         planar_lm_uvs(objs + refs)
     else:
         lightmap_uvs(objs)
+    if not bake:
+        for o in refs:
+            o['lightmap'] = group
+        return None
     img = bpy.data.images.new(f'LM_{group}', size, size, float_buffer=True)
     for o in objs:
         for slot in o.material_slots:

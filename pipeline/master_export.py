@@ -214,10 +214,27 @@ def bake_all(meta):
     hidden = [o for o in bpy.data.objects if o.type == 'MESH' and (o.name.startswith(('VIDROS', 'DEC_vaso_vidro')))]
     for o in hidden:
         o.hide_render = True  # vidro não bloqueia a luz no bake
+    # Retomada: o contêiner pode reiniciar no meio de um bake longo. Cada grupo concluído fica salvo com
+    # uma assinatura (código da cena + tamanho + amostras); na nova execução ele só refaz a UV (determinística)
+    # e reaproveita o lightmap.
+    import hashlib
+    src = b''.join(open(os.path.join(os.path.dirname(__file__), f), 'rb').read()
+                   for f in ('master_scene.py', 'build_scene.py', 'master_export.py', 'models.py'))
+    code_sig = hashlib.sha1(src).hexdigest()[:16]
     for group, size in (('arch', LM), ('floor', LM_FLOOR), ('ceil', LM_CEIL), ('furn', LM_FURN)):
-        img = B.bake_group(group, size)
-        dn = B.denoise(img)
-        np.save(os.path.join(BUILD, f'lm_{group}_hdr.npy'), dn.astype(np.float16))
+        npy = os.path.join(BUILD, f'lm_{group}_hdr.npy')
+        tag_path = os.path.join(BUILD, f'lm_{group}_tag.json')
+        tag = dict(code=code_sig, size=size, samples=LM_SAMPLES)
+        done = os.path.exists(npy) and os.path.exists(tag_path) and json.load(open(tag_path)) == tag
+        if done:
+            B.bake_group(group, size, bake=False)
+            dn = np.load(npy).astype(np.float32)
+            print(f'[bake] {group}: retomado do lightmap salvo', flush=True)
+        else:
+            img = B.bake_group(group, size)
+            dn = B.denoise(img)
+            np.save(npy, dn.astype(np.float16))
+            json.dump(tag, open(tag_path, 'w'))
         write_rgbm(dn, f'lm_{group}')
         meta[f'lm_{group}'] = dict(size=size, encoding='rgbm', range=RGBM_RANGE,
                                    p50=float(np.percentile(B.lum(dn), 50)), p99=float(np.percentile(B.lum(dn), 99)))
